@@ -1,0 +1,111 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - name: string (required)
+    //   - email: string (required, email format)
+    //   - role: string (required, enum: ['admin', 'ngo', 'volunteer'])
+    //   - uid: string (required, matches userId)
+    //
+    // Collection: requests
+    // Document ID: {requestId}
+    // Fields:
+    //   - issue: string (required)
+    //   - location: string (required)
+    //   - urgency: string (required, enum: ['low', 'medium', 'high', 'critical'])
+    //   - number_of_people_affected: number (optional)
+    //   - volunteers_needed: number (optional)
+    //   - required_skills: list (optional, strings)
+    //   - status: string (required, enum: ['pending', 'assigned', 'completed'])
+    //   - createdAt: timestamp (required)
+    //   - assignedVolunteers: list (optional, strings)
+    //
+    // Collection: volunteers
+    // Document ID: {volunteerId}
+    // Fields:
+    //   - name: string (required)
+    //   - skills: list (required, strings)
+    //   - location: string (required)
+    //   - phone: string (optional)
+    //   - availability: string (required, enum: ['available', 'busy', 'offline'])
+    //   - email: string (required, email format)
+    //   - uid: string (required, matches volunteerId)
+    //
+    // Collection: invitations
+    // Document ID: {invitationId}
+    // Fields:
+    //   - requestId: string (required)
+    //   - volunteerId: string (required)
+    //   - status: string (required, enum: ['pending', 'accepted', 'rejected'])
+    //   - createdAt: timestamp (required)
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         ((request.auth.token.email == "harshitamaheshwari321@gmail.com" || request.auth.token.email == "admin@gmail.com") && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidInvitation(data) {
+      return data.requestId is string &&
+             data.volunteerId is string &&
+             data.status in ['pending', 'accepted', 'rejected'];
+    }
+
+    // User Rules
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // Request Rules
+    match /requests/{requestId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Volunteer Rules
+    match /volunteers/{volunteerId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isOwner(volunteerId) || isAdmin();
+      allow delete: if isOwner(volunteerId) || isAdmin();
+    }
+
+    // Invitation Rules
+    match /invitations/{invitationId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidInvitation(request.resource.data);
+      allow update: if isAuthenticated() && 
+        isValidInvitation(request.resource.data) && (
+          isOwner(resource.data.volunteerId) || 
+          isAdmin()
+        ) &&
+        request.resource.data.requestId == resource.data.requestId &&
+        request.resource.data.volunteerId == resource.data.volunteerId;
+      allow delete: if isAdmin();
+    }
+  }
+}

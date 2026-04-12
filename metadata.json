@@ -1,0 +1,5 @@
+{
+  "name": "Beacon: AI Volunteer Match",
+  "description": "An AI-powered platform for NGOs to report emergencies and automatically match with skilled volunteers using Gemini and Firebase.",
+  "requestFramePermissions": ["microphone", "geolocation"]
+}

@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "Request": {
+      "title": "Emergency Request",
+      "description": "A request for help reported by an NGO or user.",
+      "type": "object",
+      "properties": {
+        "issue": { "type": "string", "description": "Description of the emergency" },
+        "location": { "type": "string", "description": "Location of the incident" },
+        "urgency": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "number_of_people_affected": { "type": "number" },
+        "volunteers_needed": { "type": "number" },
+        "required_skills": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["pending", "assigned", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "assignedVolunteers": { "type": "array", "items": { "type": "string" }, "description": "List of volunteer UIDs" },
+        "source": { "type": "string", "enum": ["chatbot", "ngo"], "description": "Origin of the report" },
+        "reportedBy": { "type": "string", "description": "UID of the user who reported" }
+      },
+      "required": ["issue", "location", "urgency", "status", "createdAt"]
+    },
+    "Volunteer": {
+      "title": "Volunteer Profile",
+      "description": "Profile of a registered volunteer.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "location": { "type": "string" },
+        "phone": { "type": "string", "description": "Contact phone number" },
+        "availability": { "type": "string", "enum": ["available", "busy", "offline"] },
+        "email": { "type": "string", "format": "email" },
+        "uid": { "type": "string" }
+      },
+      "required": ["name", "email", "uid", "availability"]
+    },
+    "User": {
+      "title": "User Profile",
+      "description": "General user or NGO profile.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "ngo", "volunteer"] },
+        "uid": { "type": "string" }
+      },
+      "required": ["email", "uid", "role"]
+    },
+    "Invitation": {
+      "title": "Mission Invitation",
+      "description": "An invitation sent to a volunteer for a specific emergency request.",
+      "type": "object",
+      "properties": {
+        "requestId": { "type": "string" },
+        "volunteerId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["requestId", "volunteerId", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/requests/{requestId}": {
+      "schema": "Request",
+      "description": "Collection of emergency help requests."
+    },
+    "/volunteers/{volunteerId}": {
+      "schema": "Volunteer",
+      "description": "Collection of volunteer profiles."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of user and NGO profiles."
+    },
+    "/invitations/{invitationId}": {
+      "schema": "Invitation",
+      "description": "Collection of volunteer mission invitations."
+    }
+  }
+}
