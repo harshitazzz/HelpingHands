@@ -18,7 +18,8 @@ import {
   RefreshCcw,
   Search,
   MapPin,
-  Phone
+  Phone,
+  ShieldAlert
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -29,7 +30,7 @@ export function AdminPanel() {
   const [requests, setRequests] = useState<any[]>([]);
   const [volunteers, setVolunteers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'requests' | 'volunteers'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'volunteers' | 'unsolved'>('requests');
 
   useEffect(() => {
     const unsubRequests = onSnapshot(collection(db, 'requests'), (snapshot) => {
@@ -177,6 +178,14 @@ export function AdminPanel() {
             Manage Requests
           </Button>
           <Button 
+            variant={activeTab === 'unsolved' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('unsolved')}
+            className="rounded-full"
+          >
+            <ShieldAlert className="w-4 h-4 mr-2" />
+            Unsolved Issues
+          </Button>
+          <Button 
             variant={activeTab === 'volunteers' ? 'default' : 'outline'}
             onClick={() => setActiveTab('volunteers')}
             className="rounded-full"
@@ -188,7 +197,7 @@ export function AdminPanel() {
       </div>
 
       <div className="grid gap-6">
-        {activeTab === 'requests' ? (
+        {activeTab === 'requests' && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -270,7 +279,73 @@ export function AdminPanel() {
               </ScrollArea>
             </CardContent>
           </Card>
-        ) : (
+        )}
+
+        {activeTab === 'unsolved' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-red-600" />
+                Unsolved Issues (&gt; 1 Week)
+              </CardTitle>
+              <CardDescription>Critical issues that haven't been resolved within 7 days.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[600px] pr-4">
+                <div className="space-y-4">
+                  {requests.filter(r => {
+                    if (!r.createdAt) return false;
+                    const oneWeekAgo = new Date();
+                    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                    return r.createdAt.toDate() < oneWeekAgo && r.status !== 'resolved';
+                  }).map((req) => (
+                    <div key={req.id} className="p-4 border-2 border-red-100 bg-red-50/30 rounded-xl flex items-center justify-between gap-4">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="destructive">CRITICAL DELAY</Badge>
+                          <h4 className="font-bold text-slate-900">{req.issue}</h4>
+                        </div>
+                        <p className="text-xs text-slate-600 flex items-center gap-1">
+                          <MapPin className="w-3 h-3" /> {req.location}
+                        </p>
+                        <p className="text-[10px] text-red-600 font-medium mt-1">
+                          Raised on: {req.createdAt?.toDate().toLocaleString()}
+                        </p>
+                        <div className="flex gap-2 mt-2">
+                          <Badge variant="outline" className="text-[10px] bg-white">ID: {req.id.slice(0, 8)}</Badge>
+                          <Badge variant="outline" className="text-[10px] bg-white">Status: {req.status}</Badge>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="bg-white border-red-200 text-red-600 hover:bg-red-50"
+                          onClick={() => handleAutoAssign(req)}
+                        >
+                          <RefreshCcw className="w-4 h-4 mr-2" /> Re-trigger Matching
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {requests.filter(r => {
+                    if (!r.createdAt) return false;
+                    const oneWeekAgo = new Date();
+                    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                    return r.createdAt.toDate() < oneWeekAgo && r.status !== 'resolved';
+                  }).length === 0 && (
+                    <div className="text-center py-12 text-slate-400">
+                      <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-green-500 opacity-50" />
+                      <p>All recent issues are being handled within the 1-week window.</p>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === 'volunteers' && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

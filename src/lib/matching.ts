@@ -81,6 +81,38 @@ export async function findMatches(requestId: string, requiredSkills: string[], l
 export async function autoAssignVolunteers(requestId: string, requiredSkills: string[], location: string, issue?: string) {
   console.log(`[AutoAssign] Starting for Request: ${requestId}`, { requiredSkills, location, issue });
   
+  const requestRef = doc(db, 'requests', requestId);
+  const requestSnap = await getDoc(requestRef);
+  if (!requestSnap.exists()) return 0;
+  const requestData = requestSnap.data();
+
+  // 0. Check if already resolved
+  if (requestData.status === 'resolved') {
+    console.log(`[AutoAssign] Request ${requestId} is already resolved. Skipping.`);
+    return 0;
+  }
+
+  const volunteersNeeded = requestData.volunteers_needed || 1;
+  const assignedVolunteers = requestData.assignedVolunteers || [];
+  const notifiedVolunteers = requestData.notifiedVolunteers || [];
+
+  // Get active invitations for this request
+  const invQuery = query(
+    collection(db, 'invitations'), 
+    where('requestId', '==', requestId), 
+    where('status', '==', 'pending')
+  );
+  const invSnapshot = await getDocs(invQuery);
+  const pendingCount = invSnapshot.size;
+
+  const currentTotal = assignedVolunteers.length + pendingCount;
+  const neededCount = volunteersNeeded - currentTotal;
+
+  if (neededCount <= 0) {
+    console.log(`[AutoAssign] Already have enough volunteers assigned or invited (${currentTotal}/${volunteersNeeded})`);
+    return 0;
+  }
+
   const volunteersRef = collection(db, 'volunteers');
   
   // 1. Check availability
@@ -89,56 +121,82 @@ export async function autoAssignVolunteers(requestId: string, requiredSkills: st
   
   const volunteers: Volunteer[] = [];
   querySnapshot.forEach((doc) => {
-    volunteers.push({ uid: doc.id, ...doc.data() } as Volunteer);
+    const vData = doc.data() as Volunteer;
+    // Skip if already notified for this request
+    if (!notifiedVolunteers.includes(doc.id)) {
+      volunteers.push({ uid: doc.id, ...vData });
+    }
   });
 
-  console.log(`[AutoAssign] Found ${volunteers.length} available volunteers.`);
+  console.log(`[AutoAssign] Found ${volunteers.length} potential available volunteers (excluding already notified). Need ${neededCount} more.`);
 
-  // Prepare search text: use requiredSkills + issue description for better matching
+  if (volunteers.length === 0) {
+    console.log(`[AutoAssign] No more volunteers available for request ${requestId}`);
+    if (currentTotal === 0) {
+      await updateDoc(requestRef, { 
+        noVolunteersAvailable: true,
+        lastMatchAttemptAt: serverTimestamp() 
+      });
+      toast.info("No volunteers available at this moment. We will connect to you soon.");
+    }
+    return 0;
+  }
+
+  // Prepare search text
   const searchText = [...requiredSkills, issue || ''].join(' ').toLowerCase();
   const reqVector = getVector(searchText);
 
   // 2. Filter and score
-  const matches = volunteers.filter(v => {
-    // Location match (strict or partial)
+  const matches = volunteers.map(v => {
     const vLoc = v.location.toLowerCase();
     const rLoc = location.toLowerCase();
     const locationMatch = vLoc.includes(rLoc) || rLoc.includes(vLoc);
     
-    if (!locationMatch) {
-      console.log(`[AutoAssign] Volunteer ${v.name} skipped: Location mismatch (${v.location} vs ${location})`);
-      return false;
-    }
-
-    // Skill match
     const vSkillsText = v.skills.join(' ').toLowerCase();
     const vVector = getVector(vSkillsText);
     const similarity = calculateCosineSimilarity(reqVector, vVector);
     
-    console.log(`[AutoAssign] Volunteer ${v.name} similarity score: ${similarity.toFixed(2)}`);
-    
-    // Be more lenient: if location matches and there's ANY skill overlap, or if skills are empty
-    return similarity > 0.05 || v.skills.length === 0; 
-  });
+    let score = similarity;
+    if (locationMatch) score += 0.5; // Strong preference for location
 
-  console.log(`[AutoAssign] Found ${matches.length} matches.`);
+    return { ...v, score };
+  }).filter(v => v.score > 0.05 || v.skills.length === 0)
+    .sort((a, b) => b.score - a.score);
 
-  // 3. Create invitations and simulate email with deep links
+  if (matches.length === 0) {
+    console.log(`[AutoAssign] No suitable matches found for request ${requestId}`);
+    if (currentTotal === 0) {
+      await updateDoc(requestRef, { 
+        noVolunteersAvailable: true,
+        lastMatchAttemptAt: serverTimestamp() 
+      });
+      toast.info("No volunteers match the requirements at this moment. We will connect to you soon.");
+    }
+    return 0;
+  }
+
+  // 3. Invite the BEST matches (up to neededCount)
+  const bestMatches = matches.slice(0, neededCount);
+  console.log(`[AutoAssign] Inviting ${bestMatches.length} best matches.`);
+
   const baseUrl = window.location.origin;
-  for (const volunteer of matches) {
-    const invitationId = await assignVolunteer(requestId, volunteer.uid);
-    
+  const newlyNotified: string[] = [];
+
+  for (const bestMatch of bestMatches) {
+    const invitationId = await assignVolunteer(requestId, bestMatch.uid);
+    newlyNotified.push(bestMatch.uid);
+
     const acceptLink = `${baseUrl}?accept=${invitationId}`;
     const rejectLink = `${baseUrl}?reject=${invitationId}`;
 
     // Call the backend API to send real email
     try {
-      const response = await fetch("/api/send-invitation", {
+      await fetch("/api/send-invitation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: volunteer.email,
-          name: volunteer.name,
+          email: bestMatch.email,
+          name: bestMatch.name,
           location,
           issue: issue || requiredSkills.join(', '),
           acceptLink,
@@ -146,46 +204,20 @@ export async function autoAssignVolunteers(requestId: string, requiredSkills: st
         })
       });
       
-      const result = await response.json();
-      if (result.success) {
-        if (result.simulated) {
-          toast.info(`Email simulated for ${volunteer.email}`, {
-            description: "Set RESEND_API_KEY in secrets for real emails.",
-            duration: 5000
-          });
-        } else {
-          toast.success(`Invitation email sent to ${volunteer.email}!`, {
-            description: "Note: Resend free tier only delivers to your own account email.",
-            duration: 8000
-          });
-        }
-      } else {
-        throw new Error(result.error);
-      }
+      toast.success(`Invitation sent to ${bestMatch.name}`);
     } catch (error) {
       console.error("Failed to send invitation email:", error);
-      toast.error(`Failed to send email to ${volunteer.email}`);
     }
-
-    // Log to console (Backup/Simulation)
-    console.log(`
-      --------------------------------------------------
-      [INVITATION DETAILS]
-      To: ${volunteer.email}
-      Subject: 🚨 Emergency Mission Invitation: ${location}
-      
-      Hi ${volunteer.name},
-      
-      You have been invited to collaborate on an emergency mission in ${location}.
-      Issue: ${issue || requiredSkills.join(', ')}
-      
-      [ACCEPT MISSION]: ${acceptLink}
-      [DECLINE MISSION]: ${rejectLink}
-      --------------------------------------------------
-    `);
   }
 
-  return matches.length;
+  // Update request with notified volunteers
+  await updateDoc(requestRef, {
+    notifiedVolunteers: arrayUnion(...newlyNotified),
+    lastInvitationSentAt: serverTimestamp(),
+    noVolunteersAvailable: false
+  });
+
+  return bestMatches.length;
 }
 
 export async function assignVolunteer(requestId: string, volunteerId: string) {
@@ -211,8 +243,15 @@ export async function respondToInvitation(invitationId: string, status: 'accepte
   await updateDoc(invRef, { status });
   
   if (status === 'accepted') {
-    // 1. Assign volunteer to request
     const requestRef = doc(db, 'requests', invData.requestId);
+    const requestSnap = await getDoc(requestRef);
+    if (requestSnap.exists() && requestSnap.data().status === 'resolved') {
+      toast.error("This mission has already been resolved. Thank you anyway!");
+      await updateDoc(invRef, { status: 'expired' });
+      return;
+    }
+
+    // 1. Assign volunteer to request
     await updateDoc(requestRef, {
       assignedVolunteers: arrayUnion(invData.volunteerId),
       status: 'assigned'
@@ -229,6 +268,22 @@ export async function respondToInvitation(invitationId: string, status: 'accepte
     await updateDoc(userRef, {
       availability: 'busy'
     }).catch(() => {}); // Optional
+  } else if (status === 'rejected') {
+    // Trigger next match
+    const requestRef = doc(db, 'requests', invData.requestId);
+    const requestSnap = await getDoc(requestRef);
+    if (requestSnap.exists()) {
+      const requestData = requestSnap.data();
+      // Only trigger if not resolved
+      if (requestData.status !== 'resolved') {
+        await autoAssignVolunteers(
+          invData.requestId, 
+          requestData.required_skills || [], 
+          requestData.location, 
+          requestData.issue
+        );
+      }
+    }
   }
 }
 
@@ -239,6 +294,17 @@ export async function completeRequest(requestId: string, volunteerId: string) {
     status: 'resolved',
     resolvedAt: serverTimestamp()
   });
+
+  // 1.5 Expire any pending invitations for this request
+  const invQuery = query(
+    collection(db, 'invitations'),
+    where('requestId', '==', requestId),
+    where('status', '==', 'pending')
+  );
+  const invSnapshot = await getDocs(invQuery);
+  for (const invDoc of invSnapshot.docs) {
+    await updateDoc(doc(db, 'invitations', invDoc.id), { status: 'expired' });
+  }
 
   // 2. Change volunteer status back to available
   const volunteerRef = doc(db, 'volunteers', volunteerId);

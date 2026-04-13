@@ -24,6 +24,7 @@ interface Request {
   createdAt: any;
   assignedVolunteers?: string[];
   source?: string;
+  noVolunteersAvailable?: boolean;
 }
 
 export function Dashboard({ isAdmin = false }: { isAdmin?: boolean }) {
@@ -210,7 +211,13 @@ export function Dashboard({ isAdmin = false }: { isAdmin?: boolean }) {
                       {req.source === 'chatbot' ? 'AI Chatbot' : 'NGO Report'}
                     </Badge>
                   </div>
-                </CardHeader>
+                {req.noVolunteersAvailable && req.status === 'pending' && (
+                  <div className="mt-2 p-2 bg-orange-50 border border-orange-100 rounded-lg flex items-center gap-2 text-[10px] text-orange-700">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>No volunteers available at this moment. We will connect to you soon.</span>
+                  </div>
+                )}
+              </CardHeader>
                 <CardContent className="space-y-4 flex-1">
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">

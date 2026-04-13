@@ -107,14 +107,26 @@ export default function App() {
       setAuthCreds({ email: '', password: '', username: '' });
     } catch (error: any) {
       console.error('Auth error:', error);
-      if (error.code === 'auth/operation-not-allowed') {
+      const errorCode = error.code || '';
+      const errorMessage = error.message || '';
+
+      if (errorCode === 'auth/operation-not-allowed') {
         toast.error('Email/Password sign-in is not enabled in Firebase. Please contact the administrator.');
-      } else if (error.code === 'auth/weak-password') {
+      } else if (errorCode === 'auth/weak-password') {
         toast.error('Password is too weak. Please use at least 6 characters.');
-      } else if (error.code === 'auth/email-already-in-use') {
+      } else if (errorCode === 'auth/email-already-in-use') {
         toast.error('This email is already registered. Please try logging in instead.');
+      } else if (errorCode === 'auth/invalid-email') {
+        toast.error('Please enter a valid email address.');
+      } else if (
+        errorCode === 'auth/invalid-credential' || 
+        errorCode === 'auth/user-not-found' || 
+        errorCode === 'auth/wrong-password' ||
+        errorMessage.toLowerCase().includes('invalid-credential')
+      ) {
+        toast.error('Invalid email or password. Please check your credentials and try again.');
       } else {
-        toast.error(error.message || 'Authentication failed');
+        toast.error(errorMessage || 'Authentication failed');
       }
     }
   };
@@ -127,6 +139,10 @@ export default function App() {
     } catch (error: any) {
       if (error.code === 'auth/popup-closed-by-user') {
         toast.info('Sign in cancelled');
+      } else if (error.code === 'auth/operation-not-allowed') {
+        toast.error('Google sign-in is not enabled in Firebase. Please contact the administrator.');
+      } else if (error.message && error.message.includes('invalid-credential')) {
+        toast.error('Authentication failed. Please check your account or try a different method.');
       } else {
         console.error('Login error:', error);
         toast.error('Failed to sign in with Google');
