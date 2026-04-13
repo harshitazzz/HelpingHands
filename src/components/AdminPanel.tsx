@@ -19,6 +19,7 @@ import {
   Search,
   MapPin,
   Phone,
+  UserPlus,
   ShieldAlert
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -31,6 +32,9 @@ export function AdminPanel() {
   const [volunteers, setVolunteers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'requests' | 'volunteers' | 'unsolved'>('requests');
+  const [timeFilter, setTimeFilter] = useState<'all' | 'today' | 'week'>('all');
+  const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
 
   useEffect(() => {
     const unsubRequests = onSnapshot(collection(db, 'requests'), (snapshot) => {
@@ -76,6 +80,39 @@ export function AdminPanel() {
       console.error("Manual auto-assign error:", error);
       toast.error("Failed to trigger auto-assignment");
     }
+  };
+
+  const handleManualAssign = async (volunteer: any) => {
+    if (!selectedRequest) return;
+    setIsAssigning(true);
+    const loadingToast = toast.loading(`Assigning ${volunteer.name}...`);
+    try {
+      await simulateEmail(volunteer.email, selectedRequest.issue, volunteer.name);
+      toast.dismiss(loadingToast);
+      toast.success(`Invitation sent to ${volunteer.name}`);
+      setIsAssigning(false);
+      setSelectedRequest(null);
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      toast.error("Failed to assign volunteer");
+      setIsAssigning(false);
+    }
+  };
+
+  const filterByTime = (reqs: any[]) => {
+    if (timeFilter === 'all') return reqs;
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    return reqs.filter(r => {
+      if (!r.createdAt) return false;
+      const date = r.createdAt.toDate();
+      if (timeFilter === 'today') return date >= startOfToday;
+      if (timeFilter === 'week') return date >= oneWeekAgo;
+      return true;
+    });
   };
 
   const handleDeleteRequest = async (id: string) => {
@@ -199,18 +236,33 @@ export function AdminPanel() {
       <div className="grid gap-6">
         {activeTab === 'requests' && (
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <RefreshCcw className="w-5 h-5 text-primary" />
-                Emergency Requests Log
-              </CardTitle>
-              <CardDescription>Monitor and moderate all active help requests.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <RefreshCcw className="w-5 h-5 text-primary" />
+                  Emergency Requests Log
+                </CardTitle>
+                <CardDescription>Monitor and moderate all active help requests.</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                {(['all', 'today', 'week'] as const).map((f) => (
+                  <Button
+                    key={f}
+                    variant={timeFilter === f ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTimeFilter(f)}
+                    className="capitalize h-8 text-xs"
+                  >
+                    {f}
+                  </Button>
+                ))}
+              </div>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[600px] pr-4">
                 <div className="space-y-4">
-                  {requests.map((req) => (
-                    <div key={req.id} className="group p-4 border rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-between gap-4">
+                  {filterByTime(requests).map((req) => (
+                    <div key={req.id} className={`group p-4 border rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-between gap-4 ${selectedRequest?.id === req.id ? 'border-primary ring-1 ring-primary' : ''}`}>
                       <div className="space-y-1 flex-1">
                         <div className="flex items-center gap-2">
                           <Badge className={req.urgency === 'critical' ? 'bg-red-600' : 'bg-blue-500'}>
@@ -224,6 +276,7 @@ export function AdminPanel() {
                         <div className="flex flex-wrap gap-2 mt-2">
                           <Badge variant="outline" className="text-[10px]">ID: {req.id.slice(0, 8)}</Badge>
                           <Badge variant="outline" className="text-[10px]">Status: {req.status}</Badge>
+                          <Badge variant="outline" className="text-[10px]">Raised: {req.createdAt?.toDate().toLocaleDateString()}</Badge>
                           {req.assignedVolunteers && req.assignedVolunteers.length > 0 && (
                             <Badge variant="secondary" className="text-[10px] bg-green-50 text-green-700 border-green-100">
                               <Users className="w-3 h-3 mr-1" />
@@ -234,6 +287,16 @@ export function AdminPanel() {
                       </div>
                       <div className="flex gap-2">
                         <Button 
+                          variant={selectedRequest?.id === req.id ? 'default' : 'outline'}
+                          size="sm" 
+                          className={selectedRequest?.id === req.id ? '' : 'text-primary hover:bg-primary/5 border-primary/20'}
+                          onClick={() => setSelectedRequest(selectedRequest?.id === req.id ? null : req)}
+                          title="Select to manually assign"
+                        >
+                          <UserPlus className="w-4 h-4 mr-2" />
+                          {selectedRequest?.id === req.id ? 'Selecting...' : 'Assign'}
+                        </Button>
+                        <Button 
                           variant="outline" 
                           size="sm" 
                           className="text-primary hover:bg-primary/5 border-primary/20"
@@ -241,22 +304,6 @@ export function AdminPanel() {
                           title="Trigger Auto-Assignment"
                         >
                           <RefreshCcw className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-blue-600 hover:bg-blue-50"
-                          onClick={() => {
-                            const volunteer = volunteers.find(v => v.availability === 'available');
-                            if (volunteer) {
-                              simulateEmail(volunteer.email, req.issue, volunteer.name);
-                            } else {
-                              toast.error("No available volunteers to notify manually.");
-                            }
-                          }}
-                          title="Notify an available volunteer"
-                        >
-                          <Mail className="w-4 h-4" />
                         </Button>
                         <Button 
                           variant="destructive" 
@@ -272,7 +319,6 @@ export function AdminPanel() {
                     <div className="text-center py-12 text-slate-400">
                       <AlertTriangle className="w-8 h-8 mx-auto mb-2 opacity-20" />
                       <p>No active emergency requests found in the database.</p>
-                      <p className="text-[10px] mt-1">Check if any requests have been reported via the chatbot or NGO form.</p>
                     </div>
                   )}
                 </div>
@@ -352,13 +398,17 @@ export function AdminPanel() {
                 <Users className="w-5 h-5 text-primary" />
                 Volunteer Registry
               </CardTitle>
-              <CardDescription>Manage registered volunteers and their availability.</CardDescription>
+              <CardDescription>
+                {selectedRequest 
+                  ? `Select a volunteer to assign to: ${selectedRequest.issue}` 
+                  : "Manage registered volunteers and their availability."}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[600px] pr-4">
                 <div className="space-y-4">
                   {volunteers.map((v) => (
-                    <div key={v.id} className="p-4 border rounded-xl flex items-center justify-between gap-4">
+                    <div key={v.id} className={`p-4 border rounded-xl flex items-center justify-between gap-4 ${selectedRequest && v.availability === 'available' ? 'border-green-200 bg-green-50/20' : ''}`}>
                       <div className="flex items-center gap-4">
                         <div className="bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center font-bold text-slate-600">
                           {v.name?.charAt(0)}
@@ -367,13 +417,11 @@ export function AdminPanel() {
                           <h4 className="font-bold text-slate-900">{v.name}</h4>
                           <div className="flex flex-col gap-0.5">
                             <p className="text-xs text-slate-500 flex items-center gap-1">
+                              <MapPin className="w-3 h-3" /> {v.location}
+                            </p>
+                            <p className="text-xs text-slate-500 flex items-center gap-1">
                               <Mail className="w-3 h-3" /> {v.email}
                             </p>
-                            {v.phone && (
-                              <p className="text-xs text-slate-500 flex items-center gap-1">
-                                <Phone className="w-3 h-3" /> {v.phone}
-                              </p>
-                            )}
                           </div>
                           <div className="flex gap-1 mt-1">
                             {v.skills?.slice(0, 3).map((s: string, i: number) => (
@@ -386,6 +434,17 @@ export function AdminPanel() {
                           <Badge variant={v.availability === 'available' ? 'default' : 'outline'} className="capitalize">
                             {v.availability}
                           </Badge>
+                          {selectedRequest && v.availability === 'available' && (
+                            <Button 
+                              size="sm" 
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => handleManualAssign(v)}
+                              disabled={isAssigning}
+                            >
+                              <UserPlus className="w-4 h-4 mr-2" />
+                              Assign Now
+                            </Button>
+                          )}
                           <Button 
                             variant="ghost" 
                             size="sm" 

@@ -25,6 +25,7 @@ interface Request {
   assignedVolunteers?: string[];
   source?: string;
   noVolunteersAvailable?: boolean;
+  image_keyword?: string;
 }
 
 export function Dashboard({ isAdmin = false }: { isAdmin?: boolean }) {
@@ -127,7 +128,47 @@ export function Dashboard({ isAdmin = false }: { isAdmin?: boolean }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-12">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-yellow-50 via-blue-50 to-green-50 border border-white shadow-xl">
+        <div className="absolute top-0 right-0 w-1/2 h-full opacity-10 pointer-events-none">
+          <div className="absolute top-10 right-10 w-64 h-64 bg-primary rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-10 right-40 w-48 h-48 bg-blue-400 rounded-full blur-3xl" />
+        </div>
+        
+        <div className="relative z-10 p-8 md:p-16 max-w-3xl">
+          <Badge className="bg-primary/10 text-primary border-primary/20 mb-6 px-4 py-1 rounded-full font-bold uppercase tracking-widest text-[10px]">
+            Our Motive
+          </Badge>
+          <h1 className="text-5xl md:text-7xl font-black tracking-tight text-slate-900 leading-[0.9] mb-6">
+            Helping Hands
+          </h1>
+          <p className="text-2xl md:text-3xl font-heading italic text-slate-700 mb-8 leading-tight">
+            "Because every need deserves the right help at the right time"
+          </p>
+          <div className="flex flex-wrap gap-4">
+            <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm border border-white flex items-center gap-3">
+              <div className="bg-green-100 p-2 rounded-xl">
+                <Users className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Community</p>
+                <p className="text-sm font-black">500+ Volunteers</p>
+              </div>
+            </div>
+            <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm border border-white flex items-center gap-3">
+              <div className="bg-blue-100 p-2 rounded-xl">
+                <AlertCircle className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Response</p>
+                <p className="text-sm font-black">AI-Powered Matching</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {user && requests.some(r => r.assignedVolunteers?.includes(user.uid)) && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
@@ -136,19 +177,19 @@ export function Dashboard({ isAdmin = false }: { isAdmin?: boolean }) {
           </div>
           <div className="grid gap-4">
             {requests.filter(r => r.assignedVolunteers?.includes(user.uid)).map(req => (
-              <Card key={req.id} className="border-l-4 border-l-green-500 bg-green-50/30">
-                <CardContent className="p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+              <Card key={req.id} className="border-l-4 border-l-green-500 bg-green-50/30 rounded-3xl overflow-hidden">
+                <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <Badge className="bg-green-600">ACTIVE MISSION</Badge>
-                      <h4 className="font-bold">{req.issue}</h4>
+                      <h4 className="font-bold text-lg">{req.issue}</h4>
                     </div>
                     <p className="text-sm text-muted-foreground flex items-center gap-1">
                       <MapPin className="w-3 h-3" /> {req.location}
                     </p>
                   </div>
                   <Button 
-                    className="bg-green-600 hover:bg-green-700 w-full md:w-auto"
+                    className="bg-green-600 hover:bg-green-700 w-full md:w-auto rounded-full px-8 h-12 font-bold"
                     onClick={() => handleCompleteMission(req.id)}
                   >
                     <CheckCircle2 className="w-4 h-4 mr-2" />
@@ -161,159 +202,212 @@ export function Dashboard({ isAdmin = false }: { isAdmin?: boolean }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Active Emergencies</h2>
-          <p className="text-sm text-muted-foreground">Real-time monitoring of reported issues and volunteer assignments.</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-black tracking-tight">Latest Emergencies</h2>
+            <p className="text-slate-500">Real-time monitoring of reported issues and volunteer assignments.</p>
+          </div>
+          <div className="flex gap-2">
+            <Badge variant="outline" className="bg-white rounded-full px-4">Total: {requests.length}</Badge>
+            <Badge variant="destructive" className="rounded-full px-4">Critical: {requests.filter(r => r.urgency === 'critical').length}</Badge>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Badge variant="outline" className="bg-white">Total: {requests.length}</Badge>
-          <Badge variant="destructive">Critical: {requests.filter(r => r.urgency === 'critical').length}</Badge>
-        </div>
-      </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <AnimatePresence>
-          {requests.map((req) => (
-            <motion.div
-              key={req.id}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-            >
-              <Card className="overflow-hidden border-l-4 h-full flex flex-col" style={{ borderLeftColor: req.urgency === 'critical' ? '#dc2626' : req.urgency === 'high' ? '#f97316' : '#3b82f6' }}>
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <Badge className={getUrgencyColor(req.urgency)}>
-                      {req.urgency.toUpperCase()}
-                    </Badge>
-                    <Badge variant={req.status === 'completed' ? 'secondary' : 'outline'}>
-                      {req.status.toUpperCase()}
-                    </Badge>
-                    {isAdmin && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon-xs" 
-                        className="text-red-500 hover:bg-red-50 ml-2"
-                        onClick={() => handleDeleteRequest(req.id)}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <AnimatePresence>
+            {requests.map((req) => (
+              <motion.div
+                key={req.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+              >
+                <Card className="overflow-hidden border-none shadow-lg hover:shadow-2xl transition-all duration-300 rounded-[2rem] flex flex-col h-full group">
+                  <div className="relative h-48 overflow-hidden">
+                    <img 
+                      src={`https://picsum.photos/seed/${req.image_keyword || req.issue}/800/600`}
+                      alt={req.issue}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    <div className="absolute top-4 left-4 flex gap-2">
+                      <Badge className={`${getUrgencyColor(req.urgency)} border-none rounded-full px-3`}>
+                        {req.urgency.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <h4 className="text-white font-bold text-lg line-clamp-1">{req.issue}</h4>
+                      <p className="text-white/80 text-xs flex items-center gap-1">
+                        <MapPin className="w-3 h-3" /> {req.location}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <CardContent className="p-6 space-y-4 flex-1 flex flex-col">
+                    <div className="flex items-center justify-between">
+                      <Badge variant={req.status === 'completed' ? 'secondary' : 'outline'} className="rounded-full">
+                        {req.status.toUpperCase()}
+                      </Badge>
+                      {isAdmin && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon-xs" 
+                          className="text-red-500 hover:bg-red-50"
+                          onClick={() => handleDeleteRequest(req.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-2xl">
+                        <Users className="w-4 h-4 text-primary" />
+                        <span>{req.number_of_people_affected || 'N/A'} Affected</span>
+                      </div>
+                      <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-2xl">
+                        <UserCheck className="w-4 h-4 text-primary" />
+                        <span>{req.assignedVolunteers?.length || 0}/{req.volunteers_needed || '?'} Help</span>
+                      </div>
+                    </div>
+
+                    {req.required_skills && req.required_skills.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {req.required_skills.slice(0, 3).map((skill, i) => (
+                          <Badge key={i} variant="secondary" className="text-[9px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border-blue-100">
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
-                  </div>
-                  <CardTitle className="text-lg mt-2">{req.issue}</CardTitle>
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {req.location}</span>
-                    <Badge 
-                      variant={req.source === 'chatbot' ? 'default' : 'outline'} 
-                      className={`text-[10px] h-5 px-1.5 font-medium ${req.source === 'chatbot' ? 'bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200' : 'bg-slate-50 text-slate-600'}`}
-                    >
-                      {req.source === 'chatbot' ? 'AI Chatbot' : 'NGO Report'}
-                    </Badge>
-                  </div>
-                {req.noVolunteersAvailable && req.status === 'pending' && (
-                  <div className="mt-2 p-2 bg-orange-50 border border-orange-100 rounded-lg flex items-center gap-2 text-[10px] text-orange-700">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>No volunteers available at this moment. We will connect to you soon.</span>
-                  </div>
-                )}
-              </CardHeader>
-                <CardContent className="space-y-4 flex-1">
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
-                      <Users className="w-4 h-4 text-slate-500" />
-                      <span>{req.number_of_people_affected || 'N/A'} Affected</span>
-                    </div>
-                    <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
-                      <UserCheck className="w-4 h-4 text-slate-500" />
-                      <span>{req.assignedVolunteers?.length || 0} / {req.volunteers_needed || '?'} Assigned</span>
-                    </div>
-                  </div>
 
-                  {req.required_skills && req.required_skills.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {req.required_skills.slice(0, 4).map((skill, i) => (
-                        <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">
-                          {skill}
-                        </Badge>
-                      ))}
-                      {req.required_skills.length > 4 && <span className="text-[10px] text-muted-foreground">+{req.required_skills.length - 4} more</span>}
-                    </div>
-                  )}
-
-                  <Dialog>
-                    <DialogTrigger render={<Button variant="outline" size="sm" className="w-full mt-4" onClick={() => handleFindMatches(req)} />}>
-                      <Search className="w-3 h-3 mr-2" />
-                      Find Matching Volunteers
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Volunteer Matching</DialogTitle>
-                        <DialogDescription>
-                          Ranked volunteers based on skills and location for "{req.issue}".
-                        </DialogDescription>
-                      </DialogHeader>
-                      <ScrollArea className="max-h-[400px] pr-4">
-                        <div className="space-y-3">
-                          {isMatching ? (
-                            <div className="text-center py-8">
-                              <Clock className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
-                              <p className="text-sm text-muted-foreground">Scanning volunteer database...</p>
-                            </div>
-                          ) : matchingResults.length > 0 ? (
-                            matchingResults.map((v) => (
-                              <div key={v.uid} className="p-3 border rounded-xl flex items-center justify-between bg-slate-50/50">
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-2">
-                                    <p className="font-bold text-sm">{v.name}</p>
-                                    <Badge variant="secondary" className="text-[10px] bg-yellow-100 text-yellow-800 border-yellow-200">
-                                      <Star className="w-2 h-2 mr-1 fill-yellow-600" />
-                                      Score: {v.score}
-                                    </Badge>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                    <MapPin className="w-3 h-3" /> {v.location}
-                                  </p>
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {v.matchingSkills.map((s, i) => (
-                                      <Badge key={i} variant="outline" className="text-[9px] py-0 px-1 border-green-200 text-green-700 bg-green-50">
-                                        {s}
-                                      </Badge>
-                                    ))}
-                                  </div>
+                    <div className="mt-auto pt-4">
+                      <Dialog>
+                        <DialogTrigger
+                          render={
+                            <Button variant="outline" size="sm" className="w-full rounded-full h-10 font-bold border-slate-200 hover:bg-primary hover:text-white hover:border-primary transition-all" onClick={() => handleFindMatches(req)}>
+                              <Search className="w-3 h-3 mr-2" />
+                              Find Volunteers
+                            </Button>
+                          }
+                        />
+                        <DialogContent className="max-w-md rounded-3xl">
+                          <DialogHeader>
+                            <DialogTitle>Volunteer Matching</DialogTitle>
+                            <DialogDescription>
+                              Ranked volunteers based on skills and location for "{req.issue}".
+                            </DialogDescription>
+                          </DialogHeader>
+                          <ScrollArea className="max-h-[400px] pr-4">
+                            <div className="space-y-3">
+                              {isMatching ? (
+                                <div className="text-center py-8">
+                                  <Clock className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
+                                  <p className="text-sm text-muted-foreground">Scanning volunteer database...</p>
                                 </div>
-                                <Button 
-                                  size="sm" 
-                                  disabled={req.assignedVolunteers?.includes(v.uid) || pendingInvitations[req.id]?.includes(v.uid)}
-                                  onClick={() => handleAssign(req.id, v.uid)}
-                                >
-                                  {req.assignedVolunteers?.includes(v.uid) ? 'Assigned' : 
-                                   pendingInvitations[req.id]?.includes(v.uid) ? 'Invited' : 'Assign'}
-                                </Button>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-center py-8">
-                              <AlertCircle className="w-6 h-6 mx-auto mb-2 text-slate-300" />
-                              <p className="text-sm text-muted-foreground">No available volunteers found matching these criteria.</p>
+                              ) : matchingResults.length > 0 ? (
+                                matchingResults.map((v) => (
+                                  <div key={v.uid} className="p-4 border rounded-2xl flex items-center justify-between bg-slate-50/50">
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <p className="font-bold text-sm">{v.name}</p>
+                                        <Badge variant="secondary" className="text-[10px] bg-yellow-100 text-yellow-800 border-yellow-200">
+                                          <Star className="w-2 h-2 mr-1 fill-yellow-600" />
+                                          Score: {v.score}
+                                        </Badge>
+                                      </div>
+                                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <MapPin className="w-3 h-3" /> {v.location}
+                                      </p>
+                                    </div>
+                                    <Button 
+                                      size="sm" 
+                                      className="rounded-full px-4"
+                                      disabled={req.assignedVolunteers?.includes(v.uid) || pendingInvitations[req.id]?.includes(v.uid)}
+                                      onClick={() => handleAssign(req.id, v.uid)}
+                                    >
+                                      {req.assignedVolunteers?.includes(v.uid) ? 'Assigned' : 
+                                       pendingInvitations[req.id]?.includes(v.uid) ? 'Invited' : 'Assign'}
+                                    </Button>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-center py-8">
+                                  <AlertCircle className="w-6 h-6 mx-auto mb-2 text-slate-300" />
+                                  <p className="text-sm text-muted-foreground">No available volunteers found matching these criteria.</p>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </DialogContent>
-                  </Dialog>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+                          </ScrollArea>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
       </div>
+
+      {/* Heatmap Section */}
+      <section className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-black tracking-tight text-slate-900">Emergency Heatmap</h2>
+            <p className="text-slate-500">Visualizing high-density emergency areas for strategic deployment.</p>
+          </div>
+        </div>
+        <Card className="rounded-[2.5rem] overflow-hidden border-none shadow-xl bg-slate-900 h-[400px] relative">
+          <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
+          <div className="relative z-10 h-full flex items-center justify-center p-8">
+            <div className="grid grid-cols-10 grid-rows-6 gap-2 w-full h-full max-w-4xl">
+              {Array.from({ length: 60 }).map((_, i) => {
+                const intensity = Math.random();
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.01 }}
+                    className="rounded-md relative group"
+                    style={{
+                      backgroundColor: intensity > 0.8 ? '#ef4444' : intensity > 0.5 ? '#f97316' : intensity > 0.2 ? '#3b82f6' : '#1e293b',
+                      opacity: intensity > 0.2 ? 0.8 : 0.3
+                    }}
+                  >
+                    {intensity > 0.7 && (
+                      <div className="absolute inset-0 animate-ping rounded-md bg-red-500 opacity-20" />
+                    )}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-white text-slate-900 text-[8px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                      Sector {i + 1}: {Math.floor(intensity * 100)}% Intensity
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+            <div className="absolute bottom-8 right-8 bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 text-white space-y-2">
+              <div className="flex items-center gap-2 text-xs">
+                <div className="w-3 h-3 bg-red-500 rounded-sm" /> High Urgency
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <div className="w-3 h-3 bg-orange-500 rounded-sm" /> Medium Urgency
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <div className="w-3 h-3 bg-blue-500 rounded-sm" /> Low Urgency
+              </div>
+            </div>
+          </div>
+        </Card>
+      </section>
       
       {requests.length === 0 && (
-        <div className="text-center py-12 border-2 border-dashed rounded-2xl bg-slate-50">
-          <CheckCircle2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-slate-900">All clear!</h3>
-          <p className="text-slate-500">No active emergency requests at the moment.</p>
+        <div className="text-center py-24 border-2 border-dashed rounded-[3rem] bg-slate-50 border-slate-200">
+          <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4 opacity-50" />
+          <h3 className="text-2xl font-black text-slate-900">All clear!</h3>
+          <p className="text-slate-500">No active emergency requests at the moment. Our community is safe.</p>
         </div>
       )}
     </div>

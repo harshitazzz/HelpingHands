@@ -1,5 +1,5 @@
 {
-  "name": "Beacon: AI Volunteer Match",
-  "description": "An AI-powered platform for NGOs to report emergencies and automatically match with skilled volunteers using Gemini and Firebase.",
+  "name": "Helping Hands",
+  "description": "Because every need deserves the right help at the right time. An NGO platform for emergency response and volunteer matching.",
   "requestFramePermissions": ["microphone", "geolocation"]
 }

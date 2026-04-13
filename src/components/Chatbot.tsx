@@ -11,12 +11,18 @@ import { db, auth, signInWithGoogle } from '@/src/lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { autoAssignVolunteers } from '@/src/lib/matching';
 import { toast } from 'sonner';
+import { Paperclip, X, File } from 'lucide-react';
+import { extractTextFromPDF } from '@/src/lib/pdfUtils';
 
 interface Message {
   id: string;
   role: 'user' | 'bot';
   text: string;
   timestamp: Date;
+  file?: {
+    name: string;
+    type: string;
+  };
 }
 
 export function Chatbot() {
@@ -34,8 +40,10 @@ export function Chatbot() {
   const [isSpeechEnabled, setIsSpeechEnabled] = useState(true);
   const [user, setUser] = useState(auth.currentUser);
   const [isListening, setIsListening] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((u) => setUser(u));
@@ -94,18 +102,63 @@ export function Chatbot() {
     }
   }, [messages]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf' && !file.type.startsWith('text/')) {
+      toast.error('Please upload a PDF or text file');
+      return;
+    }
+
+    setSelectedFile(file);
+    toast.success(`Attached: ${file.name}`);
+  };
+
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && !selectedFile) || isLoading) return;
+
+    let messageText = input;
+    let fileInfo = undefined;
+
+    if (selectedFile) {
+      fileInfo = {
+        name: selectedFile.name,
+        type: selectedFile.type
+      };
+      
+      setIsLoading(true);
+      try {
+        let extractedText = '';
+        if (selectedFile.type === 'application/pdf') {
+          extractedText = await extractTextFromPDF(selectedFile);
+        } else {
+          extractedText = await selectedFile.text();
+        }
+        
+        messageText = input 
+          ? `${input}\n\n[Attached File: ${selectedFile.name}]\n${extractedText}`
+          : `[Attached File: ${selectedFile.name}]\n${extractedText}`;
+      } catch (error) {
+        console.error('File extraction error:', error);
+        toast.error('Failed to read attached file');
+        setIsLoading(false);
+        return;
+      }
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      text: input,
+      text: input || `Uploaded ${selectedFile?.name}`,
       timestamp: new Date(),
+      file: fileInfo
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setIsLoading(true);
 
     try {
@@ -114,7 +167,7 @@ export function Chatbot() {
         parts: [{ text: m.text }],
       }));
 
-      const botResponse = await getChatResponse(input, history);
+      const botResponse = await getChatResponse(messageText, history);
       
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -323,7 +376,23 @@ export function Chatbot() {
         </ScrollArea>
       </CardContent>
 
-      <CardFooter className="p-4 border-t bg-muted/10">
+      <CardFooter className="p-4 border-t bg-muted/10 flex flex-col gap-2">
+        {selectedFile && (
+          <div className="w-full flex items-center justify-between bg-primary/5 p-2 rounded-xl border border-primary/10 animate-in fade-in slide-in-from-bottom-2">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <File className="w-4 h-4 text-primary shrink-0" />
+              <span className="text-xs font-bold text-slate-700 truncate">{selectedFile.name}</span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon-xs" 
+              onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+              className="h-6 w-6 rounded-full hover:bg-red-50 hover:text-red-500"
+            >
+              <X className="w-3 h-3" />
+            </Button>
+          </div>
+        )}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -331,6 +400,23 @@ export function Chatbot() {
           }}
           className="flex w-full gap-2"
         >
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            className="hidden" 
+            accept=".pdf,.txt"
+            onChange={handleFileChange}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading || isSubmitting || !user}
+            title="Attach PDF or Text"
+          >
+            <Paperclip className="w-4 h-4" />
+          </Button>
           <Input
             placeholder={user ? "Describe the emergency or ask for help..." : "Please sign in to chat..."}
             value={input}
@@ -348,7 +434,7 @@ export function Chatbot() {
           >
             {isListening ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </Button>
-          <Button type="submit" disabled={isLoading || isSubmitting || !input.trim() || !user} size="icon">
+          <Button type="submit" disabled={isLoading || isSubmitting || (!input.trim() && !selectedFile) || !user} size="icon">
             <Send className="w-4 h-4" />
           </Button>
         </form>

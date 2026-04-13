@@ -290,6 +290,8 @@ export async function respondToInvitation(invitationId: string, status: 'accepte
 export async function completeRequest(requestId: string, volunteerId: string) {
   // 1. Mark request as resolved
   const requestRef = doc(db, 'requests', requestId);
+  const requestSnap = await getDoc(requestRef);
+  
   await updateDoc(requestRef, {
     status: 'resolved',
     resolvedAt: serverTimestamp()
@@ -306,15 +308,23 @@ export async function completeRequest(requestId: string, volunteerId: string) {
     await updateDoc(doc(db, 'invitations', invDoc.id), { status: 'expired' });
   }
 
-  // 2. Change volunteer status back to available
-  const volunteerRef = doc(db, 'volunteers', volunteerId);
-  await updateDoc(volunteerRef, {
-    availability: 'available'
-  });
+  // 2. Change ALL assigned volunteers status back to available
+  if (requestSnap.exists()) {
+    const data = requestSnap.data();
+    const assigned = data.assignedVolunteers || [];
+    // Ensure the current volunteer is included if not already in the list for some reason
+    const allToRelease = Array.from(new Set([...assigned, volunteerId]));
+    
+    for (const vId of allToRelease) {
+      const volunteerRef = doc(db, 'volunteers', vId);
+      await updateDoc(volunteerRef, {
+        availability: 'available'
+      }).catch(err => console.error(`Failed to release volunteer ${vId}:`, err));
 
-  // 3. Update user role record
-  const userRef = doc(db, 'users', volunteerId);
-  await updateDoc(userRef, {
-    availability: 'available'
-  }).catch(() => {});
+      const userRef = doc(db, 'users', vId);
+      await updateDoc(userRef, {
+        availability: 'available'
+      }).catch(() => {});
+    }
+  }
 }

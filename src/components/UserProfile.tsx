@@ -25,8 +25,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { VolunteerInvitations } from './VolunteerInvitations';
 import { db, auth, updateProfile } from '@/src/lib/firebase';
-import { doc, setDoc, serverTimestamp, getDoc, updateDoc, deleteDoc, writeBatch, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, getDoc, updateDoc, deleteDoc, writeBatch, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { toast } from 'sonner';
 
 export function UserProfile() {
@@ -37,6 +39,7 @@ export function UserProfile() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showConfirmStop, setShowConfirmStop] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   
   const [profileData, setProfileData] = useState({
     displayName: '',
@@ -61,6 +64,20 @@ export function UserProfile() {
           email: u.email || ''
         });
         await fetchVolunteerStatus(u.uid);
+        
+        // Listen for pending invitations count
+        const invQ = query(
+          collection(db, 'invitations'),
+          where('volunteerId', '==', u.uid),
+          where('status', '==', 'pending')
+        );
+        const unsubscribeInvs = onSnapshot(invQ, (snapshot) => {
+          setPendingCount(snapshot.size);
+        });
+        
+        return () => {
+          unsubscribeInvs();
+        };
       } else {
         setIsLoading(false);
       }
@@ -339,166 +356,200 @@ export function UserProfile() {
           </Card>
         </div>
 
-        {/* Right Content: Settings */}
+        {/* Right Content: Settings & Invitations */}
         <div className="md:w-2/3 space-y-6">
-          {/* Basic Info */}
-          <Card className="shadow-sm border-slate-200">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Settings className="w-5 h-5 text-primary" /> Basic Information
-              </CardTitle>
-              <CardDescription>Update your public profile details.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-slate-500">Display Name</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input 
-                    value={profileData.displayName}
-                    onChange={e => setProfileData(prev => ({ ...prev, displayName: e.target.value }))}
-                    className="pl-10"
-                    placeholder="Your Name"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-slate-500">Profile Photo URL</label>
-                <div className="relative">
-                  <Camera className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input 
-                    value={profileData.photoURL}
-                    onChange={e => setProfileData(prev => ({ ...prev, photoURL: e.target.value }))}
-                    className="pl-10"
-                    placeholder="https://example.com/photo.jpg"
-                  />
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button onClick={handleUpdateProfile} disabled={isSubmitting} className="ml-auto">
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCcw className="w-4 h-4 mr-2" />}
-                Save Changes
-              </Button>
-            </CardFooter>
-          </Card>
-
-          {/* Volunteer Section */}
-          <Card className={`shadow-sm border-slate-200 transition-all duration-300 ${isVolunteer ? 'border-l-4 border-l-green-500' : 'bg-blue-50/30 border-dashed border-2 border-blue-200'}`}>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Shield className={`w-5 h-5 ${isVolunteer ? 'text-green-600' : 'text-blue-600'}`} /> 
-                {isVolunteer ? 'Volunteer Profile' : 'Become a Volunteer'}
-              </CardTitle>
-              <CardDescription>
-                {isVolunteer 
-                  ? "Manage your skills and availability for emergency matching." 
-                  : "Join our network of responders to help in crises. Fill out the details below to start."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-slate-500">Skills (comma separated)</label>
-                <Textarea 
-                  value={volunteerData.skills}
-                  onChange={e => setVolunteerData(prev => ({ ...prev, skills: e.target.value }))}
-                  placeholder="Medical, Driving, Cooking, First Aid..."
-                  className="min-h-[80px]"
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-slate-500">Phone Number</label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input 
-                      value={volunteerData.phone}
-                      onChange={e => setVolunteerData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="pl-10"
-                      placeholder="+1 (555) 000-0000"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-slate-500">Location</label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <Input 
-                        value={volunteerData.location}
-                        onChange={e => setVolunteerData(prev => ({ ...prev, location: e.target.value }))}
-                        className="pl-10"
-                        placeholder="City, State"
-                      />
-                    </div>
-                    <Button variant="outline" size="icon" onClick={detectLocation} title="Detect my location">
-                      <Navigation className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-slate-500">Current Availability</label>
-                <div className="flex gap-2">
-                  {(['available', 'busy', 'offline'] as const).map((status) => (
-                    <Button
-                      key={status}
-                      variant={volunteerData.availability === status ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setVolunteerData(prev => ({ ...prev, availability: status }))}
-                      className="flex-1 capitalize"
-                    >
-                      {status}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="flex flex-col sm:flex-row justify-between gap-4">
-              {isVolunteer && (
-                <>
-                  {showConfirmStop ? (
-                    <div className="flex-1 p-3 bg-orange-50 rounded-lg border border-orange-100 space-y-2">
-                      <p className="text-xs text-orange-700 font-medium">Stop volunteering? Your profile will be hidden.</p>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="destructive" 
-                          size="sm" 
-                          className="flex-1 h-8 text-xs"
-                          onClick={handleRemoveVolunteer}
-                          disabled={isSubmitting}
-                        >
-                          Confirm Stop
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="flex-1 h-8 text-xs"
-                          onClick={() => setShowConfirmStop(false)}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <Button variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => setShowConfirmStop(true)}>
-                      <UserMinus className="w-4 h-4 mr-2" /> Stop Volunteering
-                    </Button>
+          {isVolunteer ? (
+            <Tabs defaultValue="settings" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="settings" className="flex items-center gap-2">
+                  <Settings className="w-4 h-4" /> Settings
+                </TabsTrigger>
+                <TabsTrigger value="invitations" className="flex items-center gap-2">
+                  <Mail className="w-4 h-4" /> Invitations
+                  {pendingCount > 0 && (
+                    <Badge className="ml-1 px-1.5 h-4 min-w-[16px] flex items-center justify-center bg-red-500 text-white border-none text-[10px]">
+                      {pendingCount}
+                    </Badge>
                   )}
-                </>
-              )}
-              <Button 
-                onClick={handleUpdateVolunteer} 
-                disabled={isSubmitting || showConfirmStop} 
-                className={isVolunteer ? '' : 'w-full bg-blue-600 hover:bg-blue-700'}
-              >
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                {isVolunteer ? 'Update Volunteer Data' : 'Complete Volunteer Registration'}
-              </Button>
-            </CardFooter>
-          </Card>
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="settings" className="space-y-6 mt-0">
+                {renderSettings()}
+              </TabsContent>
+
+              <TabsContent value="invitations" className="mt-0">
+                <VolunteerInvitations />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            renderSettings()
+          )}
         </div>
       </div>
     </div>
   );
+
+  function renderSettings() {
+    return (
+      <div className="space-y-6">
+        {/* Basic Info */}
+        <Card className="shadow-sm border-slate-200">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Settings className="w-5 h-5 text-primary" /> Basic Information
+            </CardTitle>
+            <CardDescription>Update your public profile details.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-slate-500">Display Name</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input 
+                  value={profileData.displayName}
+                  onChange={e => setProfileData(prev => ({ ...prev, displayName: e.target.value }))}
+                  className="pl-10"
+                  placeholder="Your Name"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-slate-500">Profile Photo URL</label>
+              <div className="relative">
+                <Camera className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input 
+                  value={profileData.photoURL}
+                  onChange={e => setProfileData(prev => ({ ...prev, photoURL: e.target.value }))}
+                  className="pl-10"
+                  placeholder="https://example.com/photo.jpg"
+                />
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={handleUpdateProfile} disabled={isSubmitting} className="ml-auto">
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCcw className="w-4 h-4 mr-2" />}
+              Save Changes
+            </Button>
+          </CardFooter>
+        </Card>
+
+        {/* Volunteer Section */}
+        <Card className={`shadow-sm border-slate-200 transition-all duration-300 ${isVolunteer ? 'border-l-4 border-l-green-500' : 'bg-blue-50/30 border-dashed border-2 border-blue-200'}`}>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Shield className={`w-5 h-5 ${isVolunteer ? 'text-green-600' : 'text-blue-600'}`} /> 
+              {isVolunteer ? 'Volunteer Profile' : 'Become a Volunteer'}
+            </CardTitle>
+            <CardDescription>
+              {isVolunteer 
+                ? "Manage your skills and availability for emergency matching." 
+                : "Join our network of responders to help in crises. Fill out the details below to start."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-slate-500">Skills (comma separated)</label>
+              <Textarea 
+                value={volunteerData.skills}
+                onChange={e => setVolunteerData(prev => ({ ...prev, skills: e.target.value }))}
+                placeholder="Medical, Driving, Cooking, First Aid..."
+                className="min-h-[80px]"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-slate-500">Phone Number</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input 
+                    value={volunteerData.phone}
+                    onChange={e => setVolunteerData(prev => ({ ...prev, phone: e.target.value }))}
+                    className="pl-10"
+                    placeholder="+1 (555) 000-0000"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-slate-500">Location</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input 
+                      value={volunteerData.location}
+                      onChange={e => setVolunteerData(prev => ({ ...prev, location: e.target.value }))}
+                      className="pl-10"
+                      placeholder="City, State"
+                    />
+                  </div>
+                  <Button variant="outline" size="icon" onClick={detectLocation} title="Detect my location">
+                    <Navigation className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-slate-500">Current Availability</label>
+              <div className="flex gap-2">
+                {(['available', 'busy', 'offline'] as const).map((status) => (
+                  <Button
+                    key={status}
+                    variant={volunteerData.availability === status ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setVolunteerData(prev => ({ ...prev, availability: status }))}
+                    className="flex-1 capitalize"
+                  >
+                    {status}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col sm:flex-row justify-between gap-4">
+            {isVolunteer && (
+              <>
+                {showConfirmStop ? (
+                  <div className="flex-1 p-3 bg-orange-50 rounded-lg border border-orange-100 space-y-2">
+                    <p className="text-xs text-orange-700 font-medium">Stop volunteering? Your profile will be hidden.</p>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="flex-1 h-8 text-xs"
+                        onClick={handleRemoveVolunteer}
+                        disabled={isSubmitting}
+                      >
+                        Confirm Stop
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1 h-8 text-xs"
+                        onClick={() => setShowConfirmStop(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => setShowConfirmStop(true)}>
+                    <UserMinus className="w-4 h-4 mr-2" /> Stop Volunteering
+                  </Button>
+                )}
+              </>
+            )}
+            <Button 
+              onClick={handleUpdateVolunteer} 
+              disabled={isSubmitting || showConfirmStop} 
+              className={isVolunteer ? '' : 'w-full bg-blue-600 hover:bg-blue-700'}
+            >
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+              {isVolunteer ? 'Update Volunteer Data' : 'Complete Volunteer Registration'}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 }

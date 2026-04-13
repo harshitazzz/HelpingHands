@@ -23,7 +23,7 @@ export async function getChatResponse(message: string, history: { role: string, 
   const chat = ai.chats.create({
     model: "gemini-flash-latest",
     config: {
-      systemInstruction: `You are Beacon, an AI assistant for an NGO Volunteer Matching platform. 
+      systemInstruction: `You are Helping Hands, an AI assistant for an NGO platform. 
       Your goal is to help users report emergencies or issues. 
       Ask questions one by one to gather:
       1. What is the issue?
@@ -55,8 +55,35 @@ export async function getStructuredEmergencyData(text: string) {
           number_of_people_affected: { type: Type.NUMBER },
           volunteers_needed: { type: Type.NUMBER },
           required_skills: { type: Type.ARRAY, items: { type: Type.STRING } },
+          image_keyword: { type: Type.STRING, description: "A single keyword for an image search related to this issue (e.g., 'flood', 'medical', 'fire')" },
         },
-        required: ["issue", "location", "urgency"],
+        required: ["issue", "location", "urgency", "image_keyword"],
+      },
+    },
+  });
+  return JSON.parse(response.text);
+}
+
+export async function getPredictiveAnalysis() {
+  const response = await ai.models.generateContent({
+    model: "gemini-flash-latest",
+    contents: `Based on simulated global news and weather data (e.g., heavy rains in South Asia, conflict in Middle East, heatwaves in Europe), predict 3 potential humanitarian needs that might arise in the next 30 days. 
+    Provide a title, location, description, and probability.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            location: { type: Type.STRING },
+            description: { type: Type.STRING },
+            probability: { type: Type.STRING },
+            type: { type: Type.STRING, enum: ["weather", "conflict", "health", "economic"] },
+          },
+          required: ["title", "location", "description", "probability", "type"],
+        },
       },
     },
   });
