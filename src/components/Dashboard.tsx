@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { findMatches, assignVolunteer, Volunteer, completeRequest } from '@/src/lib/matching';
 import { auth } from '@/src/lib/firebase';
 
+
 interface Request {
   id: string;
   issue: string;
@@ -224,42 +225,32 @@ export function Dashboard({ isAdmin = false }: { isAdmin?: boolean }) {
                 exit={{ opacity: 0, scale: 0.95 }}
               >
                 <Card className="overflow-hidden border-none shadow-lg hover:shadow-2xl transition-all duration-300 rounded-[2rem] flex flex-col h-full group">
-                  <div className="relative h-48 overflow-hidden">
-                    <img 
-                      src={`https://picsum.photos/seed/${req.image_keyword || req.issue}/800/600`}
-                      alt={req.issue}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    <div className="absolute top-4 left-4 flex gap-2">
-                      <Badge className={`${getUrgencyColor(req.urgency)} border-none rounded-full px-3`}>
-                        {req.urgency.toUpperCase()}
-                      </Badge>
-                    </div>
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <h4 className="text-white font-bold text-lg line-clamp-1">{req.issue}</h4>
-                      <p className="text-white/80 text-xs flex items-center gap-1">
-                        <MapPin className="w-3 h-3" /> {req.location}
-                      </p>
-                    </div>
-                  </div>
-                  
                   <CardContent className="p-6 space-y-4 flex-1 flex flex-col">
                     <div className="flex items-center justify-between">
-                      <Badge variant={req.status === 'completed' ? 'secondary' : 'outline'} className="rounded-full">
-                        {req.status.toUpperCase()}
-                      </Badge>
-                      {isAdmin && (
-                        <Button 
-                          variant="ghost" 
-                          size="icon-xs" 
-                          className="text-red-500 hover:bg-red-50"
-                          onClick={() => handleDeleteRequest(req.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        <Badge className={`${getUrgencyColor(req.urgency)} border-none rounded-full px-3 w-fit`}>
+                          {req.urgency.toUpperCase()}
+                        </Badge>
+                        <h4 className="font-bold text-lg line-clamp-1">{req.issue}</h4>
+                        <p className="text-slate-500 text-xs flex items-center gap-1">
+                          <MapPin className="w-3 h-3" /> {req.location}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge variant={req.status === 'completed' ? 'secondary' : 'outline'} className="rounded-full">
+                          {req.status.toUpperCase()}
+                        </Badge>
+                        {isAdmin && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon-xs" 
+                            className="text-red-500 hover:bg-red-50"
+                            onClick={() => handleDeleteRequest(req.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -352,56 +343,6 @@ export function Dashboard({ isAdmin = false }: { isAdmin?: boolean }) {
         </div>
       </div>
 
-      {/* Heatmap Section */}
-      <section className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-black tracking-tight text-slate-900">Emergency Heatmap</h2>
-            <p className="text-slate-500">Visualizing high-density emergency areas for strategic deployment.</p>
-          </div>
-        </div>
-        <Card className="rounded-[2.5rem] overflow-hidden border-none shadow-xl bg-slate-900 h-[400px] relative">
-          <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
-          <div className="relative z-10 h-full flex items-center justify-center p-8">
-            <div className="grid grid-cols-10 grid-rows-6 gap-2 w-full h-full max-w-4xl">
-              {Array.from({ length: 60 }).map((_, i) => {
-                const intensity = Math.random();
-                return (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.01 }}
-                    className="rounded-md relative group"
-                    style={{
-                      backgroundColor: intensity > 0.8 ? '#ef4444' : intensity > 0.5 ? '#f97316' : intensity > 0.2 ? '#3b82f6' : '#1e293b',
-                      opacity: intensity > 0.2 ? 0.8 : 0.3
-                    }}
-                  >
-                    {intensity > 0.7 && (
-                      <div className="absolute inset-0 animate-ping rounded-md bg-red-500 opacity-20" />
-                    )}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-white text-slate-900 text-[8px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
-                      Sector {i + 1}: {Math.floor(intensity * 100)}% Intensity
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-            <div className="absolute bottom-8 right-8 bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 text-white space-y-2">
-              <div className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 bg-red-500 rounded-sm" /> High Urgency
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 bg-orange-500 rounded-sm" /> Medium Urgency
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 bg-blue-500 rounded-sm" /> Low Urgency
-              </div>
-            </div>
-          </div>
-        </Card>
-      </section>
       
       {requests.length === 0 && (
         <div className="text-center py-24 border-2 border-dashed rounded-[3rem] bg-slate-50 border-slate-200">

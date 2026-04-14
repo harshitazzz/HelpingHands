@@ -1,28 +1,111 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getPredictiveAnalysis } from '@/src/lib/gemini';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Brain, MapPin, AlertCircle, TrendingUp, CloudRain, ShieldAlert, Activity, DollarSign } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Brain, MapPin, AlertCircle, TrendingUp, CloudRain, ShieldAlert, Activity, DollarSign, Search, Navigation, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 
 export function PredictiveTab() {
   const [predictions, setPredictions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [location, setLocation] = useState('Global');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const fetchPredictions = useCallback(async (loc: string, weatherData?: any) => {
+    setLoading(true);
+    try {
+      const weatherContext = weatherData ? 
+        `Current Weather: ${weatherData.temperature}°C, Condition: ${weatherData.condition}` : 
+        'Weather data unavailable';
+        
+      const data = await getPredictiveAnalysis(`${loc}. ${weatherContext}`);
+      setPredictions(data);
+    } catch (error) {
+      console.error("Failed to fetch predictions:", error);
+      toast.error("Failed to generate AI insights for this location");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchWeather = async (lat: number, lon: number) => {
+    try {
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+      const data = await res.json();
+      return {
+        temperature: data.current_weather.temperature,
+        condition: data.current_weather.weathercode // Simplified
+      };
+    } catch (err) {
+      return null;
+    }
+  };
 
   useEffect(() => {
-    async function fetchPredictions() {
-      try {
-        const data = await getPredictiveAnalysis();
-        setPredictions(data);
-      } catch (error) {
-        console.error("Failed to fetch predictions:", error);
-      } finally {
-        setLoading(false);
-      }
+    // Initial location detection
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            const [geoRes, weather] = await Promise.all([
+              fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`),
+              fetchWeather(latitude, longitude)
+            ]);
+            const geoData = await geoRes.json();
+            const city = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.state || 'Global';
+            setLocation(city);
+            fetchPredictions(city, weather);
+          } catch (err) {
+            fetchPredictions('Global');
+          }
+        },
+        () => {
+          fetchPredictions('Global');
+        }
+      );
+    } else {
+      fetchPredictions('Global');
     }
-    fetchPredictions();
-  }, []);
+  }, [fetchPredictions]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (searchQuery.length > 2) {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`);
+          const data = await res.json();
+          setSuggestions(data);
+        } catch (err) {
+          console.error("Autocomplete error:", err);
+        }
+      } else {
+        setSuggestions([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  const handleSelectLocation = async (loc: any) => {
+    const name = loc.display_name.split(',')[0];
+    const lat = parseFloat(loc.lat);
+    const lon = parseFloat(loc.lon);
+    
+    setLocation(name);
+    setSearchQuery('');
+    setSuggestions([]);
+    
+    const weather = await fetchWeather(lat, lon);
+    fetchPredictions(name, weather);
+    toast.success(`Showing insights for ${name}`);
+  };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -36,15 +119,65 @@ export function PredictiveTab() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-8 opacity-5">
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 relative">
+        <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
           <Brain className="w-32 h-32" />
         </div>
-        <div className="relative z-10">
-          <h2 className="text-3xl font-black tracking-tight text-slate-900">Predictive Insights</h2>
-          <p className="text-slate-500 mt-2 max-w-2xl">
-            Our AI analyzes global news, weather patterns, and economic trends to predict potential humanitarian needs before they become crises.
-          </p>
+        <div className="relative z-10 space-y-6">
+          <div>
+            <h2 className="text-3xl font-black tracking-tight text-slate-900">Predictive Insights</h2>
+            <p className="text-slate-500 mt-2 max-w-2xl">
+              AI-driven humanitarian forecasting based on real-time news, weather, and socio-economic trends.
+            </p>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+            <div className="relative flex-1 w-full">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input 
+                  placeholder="Search for a region or city..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 rounded-2xl h-12 border-slate-200 focus:ring-primary bg-white"
+                />
+              </div>
+              
+              <AnimatePresence>
+                {suggestions.length > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-200 z-[100] overflow-hidden"
+                  >
+                    <div className="max-h-[300px] overflow-y-auto">
+                      {suggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          onClick={() => handleSelectLocation(s)}
+                          className="w-full text-left px-5 py-4 hover:bg-slate-50 text-sm flex items-center gap-3 transition-colors border-b border-slate-100 last:border-none group"
+                        >
+                          <div className="bg-slate-100 p-2 rounded-lg group-hover:bg-primary/10 transition-colors">
+                            <MapPin className="w-4 h-4 text-slate-400 group-hover:text-primary" />
+                          </div>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="font-bold text-slate-900 truncate">{s.display_name.split(',')[0]}</span>
+                            <span className="text-[10px] text-slate-400 truncate">{s.display_name}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            
+            <div className="flex items-center gap-3 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100">
+              <Navigation className="w-4 h-4 text-primary" />
+              <span className="text-sm font-bold text-slate-700">Current: {location}</span>
+            </div>
+          </div>
         </div>
       </div>
 

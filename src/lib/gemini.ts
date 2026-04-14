@@ -64,11 +64,12 @@ export async function getStructuredEmergencyData(text: string) {
   return JSON.parse(response.text);
 }
 
-export async function getPredictiveAnalysis() {
+export async function getPredictiveAnalysis(location: string = "Global") {
   const response = await ai.models.generateContent({
     model: "gemini-flash-latest",
-    contents: `Based on simulated global news and weather data (e.g., heavy rains in South Asia, conflict in Middle East, heatwaves in Europe), predict 3 potential humanitarian needs that might arise in the next 30 days. 
-    Provide a title, location, description, and probability.`,
+    contents: `Based on current news, weather patterns, and socio-economic trends for the region: "${location}", predict 3 potential humanitarian needs or risks that might arise in the next 30 days. 
+    Consider factors like upcoming weather events, local news reports, and historical data for this area.
+    Provide a title, specific location (within or near the region), description, and probability.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
