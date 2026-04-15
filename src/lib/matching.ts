@@ -206,7 +206,7 @@ export async function autoAssignVolunteers(requestId: string, requiredSkills: st
       
       toast.success(`Invitation sent to ${bestMatch.name}`);
     } catch (error) {
-      console.error("Failed to send invitation email:", error);
+      console.error("Failed to send invitation:", error);
     }
   }
 
