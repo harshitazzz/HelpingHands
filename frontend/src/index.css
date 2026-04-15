@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Inter:wght@100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Outfit:wght@100..900&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -6,7 +6,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: 'Cormorant Garamond', serif;
+    --font-heading: 'Outfit', 'Inter', sans-serif;
     --font-sans: 'Inter', sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
@@ -48,48 +48,87 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
-    /* NGO Pastel Theme */
-    --background: #FCFDF7; /* Very warm off-white */
-    --foreground: #1A2E1A; /* Deep forest green for text */
+@layer base {
+  :root {
+    /* Premium NGO Pastel Theme */
+    --background: #FCFDF7; /* Warm Off-white */
+    --foreground: #0F172A; /* Slate 900 for modern feel */
     
     --card: #FFFFFF;
-    --card-foreground: #1A2E1A;
+    --card-foreground: #0F172A;
     
     --popover: #FFFFFF;
-    --popover-foreground: #1A2E1A;
+    --popover-foreground: #0F172A;
     
-    --primary: #22C55E; /* NGO Green */
+    --primary: #22C55E; /* Modern NGO Green */
     --primary-foreground: #FFFFFF;
     
-    --secondary: #DBEAFE; /* Pastel Blue */
-    --secondary-foreground: #1E40AF;
+    --secondary: #E0F2FE; /* Light Pastel Blue */
+    --secondary-foreground: #0369A1;
     
-    --muted: #F3F4F6;
-    --muted-foreground: #6B7280;
+    --muted: #F8FAFC;
+    --muted-foreground: #64748B;
     
-    --accent: #FEF9C3; /* Pastel Yellow */
+    --accent: #FEF9C3; /* Light Pastel Yellow */
     --accent-foreground: #854D0E;
     
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: #E5E7EB;
-    --input: #E5E7EB;
+    --destructive: #EF4444;
+    --border: #E2E8F0;
+    --input: #E2E8F0;
     --ring: #22C55E;
     
-    --radius: 1rem;
-}
+    --radius: 1.5rem; /* Larger, softer radius for premium feel */
+  }
 
-@layer base {
+  .dark {
+    --background: #020617;
+    --foreground: #F8FAFC;
+    --card: #0F172A;
+    --card-foreground: #F8FAFC;
+    --popover: #0F172A;
+    --popover-foreground: #F8FAFC;
+    --primary: #22C55E;
+    --primary-foreground: #FFFFFF;
+    --secondary: #1E293B;
+    --secondary-foreground: #F8FAFC;
+    --muted: #1E293B;
+    --muted-foreground: #94A3B8;
+    --accent: #1E293B;
+    --accent-foreground: #F8FAFC;
+    --destructive: #7F1D1D;
+    --border: #1E293B;
+    --input: #1E293B;
+    --ring: #22C55E;
+  }
+
   * {
     @apply border-border outline-ring/50;
-    }
-  body {
-    @apply bg-background text-foreground;
-    }
-  html {
-    @apply font-sans;
-    }
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-heading;
   }
+  
+  body {
+    @apply bg-background text-foreground selection:bg-primary/20 selection:text-primary;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  html {
+    @apply font-sans antialiased scroll-smooth;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tight;
+  }
+}
+
+/* Glassmorphism utility */
+.glass {
+  @apply bg-white/70 backdrop-blur-xl border border-white/20 shadow-xl;
+}
+
+.glass-dark {
+  @apply bg-slate-900/70 backdrop-blur-xl border border-white/10 shadow-xl;
+}
+
+/* Smooth transitions */
+.transition-all-custom {
+  @apply transition-all duration-300 ease-in-out;
 }

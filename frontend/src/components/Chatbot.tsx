@@ -195,10 +195,18 @@ export function Chatbot() {
       try {
         await signInWithGoogle();
       } catch (error: any) {
-        if (error.code === 'auth/popup-closed-by-user') {
-          toast.info('Sign in cancelled');
+        console.error('Chatbot login error:', error);
+        const errorCode = error.code || 'unknown';
+        const errorMessage = error.message || 'No specific error message available';
+
+        if (errorCode === 'auth/popup-closed-by-user') {
+          toast.info('Sign in cancelled: Log in to submit a report.');
+        } else if (errorCode === 'auth/operation-not-allowed') {
+          toast.error('Google sign-in is not enabled in Firebase.');
+        } else if (errorCode === 'auth/unauthorized-domain') {
+          toast.error(`Domain '${window.location.hostname}' is not authorized.`);
         } else {
-          toast.error('Authentication failed');
+          toast.error(`Authentication failed (${errorCode})`);
         }
         return;
       }
@@ -256,17 +264,17 @@ export function Chatbot() {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto h-[600px] flex flex-col shadow-xl border-t-4 border-t-primary">
-      <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30 py-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-primary p-2 rounded-full">
-            <Bot className="w-6 h-6 text-primary-foreground" />
+    <Card className="w-full mx-auto h-full flex flex-col shadow-none border-none bg-transparent overflow-hidden">
+      <div className="p-6 border-b glass flex flex-row items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="bg-primary p-3 rounded-2xl shadow-lg shadow-primary/20">
+            <Bot className="w-6 h-6 text-white" />
           </div>
           <div>
-            <CardTitle className="text-lg">Beacon AI Assistant</CardTitle>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              Online | Emergency Support
+            <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Beacon AI</CardTitle>
+            <p className="text-[10px] uppercase font-black tracking-widest text-primary flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
+              Emergency Assistant
             </p>
           </div>
         </div>
@@ -275,35 +283,36 @@ export function Chatbot() {
             <Button 
               variant="default" 
               size="sm" 
-              className="bg-green-600 hover:bg-green-700 text-white shadow-lg animate-in fade-in slide-in-from-right-4"
+              className="bg-primary hover:bg-green-600 text-white shadow-xl shadow-primary/20 rounded-xl font-black h-10 px-4 transition-all active:scale-95"
               onClick={handleSubmitReport}
               disabled={isSubmitting}
             >
               {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-              Submit Report
+              Submit
             </Button>
           )}
           <Button
             variant="ghost"
             size="icon"
+            className="rounded-xl hover:bg-primary/10 hover:text-primary transition-colors"
             onClick={() => setIsSpeechEnabled(!isSpeechEnabled)}
-            title={isSpeechEnabled ? "Disable Text-to-Speech" : "Enable Text-to-Speech"}
+            title={isSpeechEnabled ? "Disable Voice" : "Enable Voice"}
           >
             {isSpeechEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </Button>
         </div>
-      </CardHeader>
+      </div>
       
-      <CardContent className="flex-1 overflow-hidden p-0 relative">
+      <CardContent className="flex-1 overflow-hidden p-0 relative bg-slate-50/30">
         {!user ? (
-          <div className="absolute inset-0 z-10 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center space-y-4">
-            <div className="bg-primary/10 p-4 rounded-full">
-              <LogIn className="w-10 h-10 text-primary" />
+          <div className="absolute inset-0 z-10 bg-white/40 backdrop-blur-md flex flex-col items-center justify-center p-8 text-center space-y-6">
+            <div className="bg-primary/10 p-6 rounded-[2rem] shadow-inner">
+              <LogIn className="w-12 h-12 text-primary" />
             </div>
-            <div className="space-y-2">
-              <h3 className="text-xl font-bold">Sign in to use Beacon</h3>
-              <p className="text-sm text-muted-foreground max-w-[250px]">
-                Please sign in with your Google account to report emergencies and coordinate help.
+            <div className="space-y-3">
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Access Secure Support</h3>
+              <p className="text-slate-500 font-medium max-w-[300px] text-lg">
+                Sign in to coordinate help and receive AI assistance.
               </p>
             </div>
             <Button 
@@ -311,48 +320,56 @@ export function Chatbot() {
                 try {
                   await signInWithGoogle();
                 } catch (error: any) {
-                  if (error.code === 'auth/popup-closed-by-user') {
+                  console.error('Chatbot overlay login error:', error);
+                  const errorCode = error.code || 'unknown';
+                  const errorMessage = error.message || 'No specific error message available';
+
+                  if (errorCode === 'auth/popup-closed-by-user') {
                     toast.info('Sign in cancelled');
                   } else {
-                    toast.error('Authentication failed');
+                    toast.error(`Sign-in failed (${errorCode})`);
                   }
                 }
               }} 
-              className="gap-2"
+              className="gap-3 h-14 px-10 rounded-2xl shadow-xl shadow-primary/20 font-black text-lg transition-all active:scale-95"
             >
-              <LogIn className="w-4 h-4" />
+              <LogIn className="w-5 h-5" />
               Sign in with Google
             </Button>
           </div>
         ) : null}
         
-        <ScrollArea className="h-full p-4" ref={scrollRef}>
-          <div className="space-y-4">
+        <ScrollArea className="h-full p-8" ref={scrollRef}>
+          <div className="space-y-8">
             <AnimatePresence initial={false}>
               {messages.map((m) => (
                 <motion.div
                   key={m.id}
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
                   className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className={`flex gap-3 max-w-[80%] ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                    <Avatar className="w-8 h-8 border">
+                  <div className={`flex gap-4 max-w-[85%] ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <Avatar className="w-10 h-10 border-2 border-white shadow-md">
                       {m.role === 'user' ? (
-                        <AvatarFallback className="bg-secondary text-secondary-foreground"><User className="w-4 h-4" /></AvatarFallback>
+                        <AvatarFallback className="bg-slate-200 text-slate-600 font-black tracking-tight">
+                          {user?.displayName?.charAt(0) || 'U'}
+                        </AvatarFallback>
                       ) : (
-                        <AvatarFallback className="bg-primary text-primary-foreground"><Bot className="w-4 h-4" /></AvatarFallback>
+                        <AvatarFallback className="bg-primary text-white font-black"><Bot className="w-5 h-5" /></AvatarFallback>
                       )}
                     </Avatar>
-                    <div
-                      className={`rounded-2xl px-4 py-2 text-sm shadow-sm ${
-                        m.role === 'user'
-                          ? 'bg-primary text-primary-foreground rounded-tr-none'
-                          : 'bg-muted border rounded-tl-none'
-                      }`}
-                    >
-                      {m.text}
-                      <p className="text-[10px] opacity-50 mt-1 text-right">
+                    <div className="space-y-1">
+                      <div
+                        className={`rounded-[1.5rem] px-5 py-3 text-base font-medium shadow-sm transition-all ${
+                          m.role === 'user'
+                            ? 'bg-primary text-white rounded-tr-none shadow-primary/10'
+                            : 'bg-white border text-slate-700 rounded-tl-none border-slate-100 shadow-slate-100/50'
+                        }`}
+                      >
+                        {m.text}
+                      </div>
+                      <p className={`text-[9px] font-black uppercase tracking-widest text-slate-300 ${m.role === 'user' ? 'text-right mr-1' : 'text-left ml-1'}`}>
                         {m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
@@ -366,9 +383,9 @@ export function Chatbot() {
                 animate={{ opacity: 1 }}
                 className="flex justify-start"
               >
-                <div className="flex gap-3 items-center bg-muted rounded-2xl px-4 py-2 border rounded-tl-none">
+                <div className="flex gap-4 items-center bg-white rounded-2xl px-5 py-3 border border-slate-100 rounded-tl-none shadow-sm shadow-slate-100/30">
                   <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span className="text-xs text-muted-foreground italic">Beacon is thinking...</span>
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Beacon is thinking...</span>
                 </div>
               </motion.div>
             )}
@@ -376,20 +393,22 @@ export function Chatbot() {
         </ScrollArea>
       </CardContent>
 
-      <CardFooter className="p-4 border-t bg-muted/10 flex flex-col gap-2">
+      <CardFooter className="p-6 border-t glass flex flex-col gap-4">
         {selectedFile && (
-          <div className="w-full flex items-center justify-between bg-primary/5 p-2 rounded-xl border border-primary/10 animate-in fade-in slide-in-from-bottom-2">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <File className="w-4 h-4 text-primary shrink-0" />
-              <span className="text-xs font-bold text-slate-700 truncate">{selectedFile.name}</span>
+          <div className="w-full flex items-center justify-between bg-primary/5 p-3 rounded-2xl border border-primary/10 animate-in fade-in slide-in-from-bottom-2">
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="bg-white p-2 rounded-xl border border-primary/10">
+                <File className="w-4 h-4 text-primary shrink-0" />
+              </div>
+              <span className="text-sm font-black text-slate-700 truncate">{selectedFile.name}</span>
             </div>
             <Button 
               variant="ghost" 
-              size="icon-xs" 
+              size="icon" 
               onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
-              className="h-6 w-6 rounded-full hover:bg-red-50 hover:text-red-500"
+              className="h-8 w-8 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors"
             >
-              <X className="w-3 h-3" />
+              <X className="w-4 h-4" />
             </Button>
           </div>
         )}
@@ -398,7 +417,7 @@ export function Chatbot() {
             e.preventDefault();
             handleSend();
           }}
-          className="flex w-full gap-2"
+          className="flex w-full gap-3"
         >
           <input 
             type="file" 
@@ -411,31 +430,41 @@ export function Chatbot() {
             type="button"
             variant="outline"
             size="icon"
+            className="rounded-2xl h-14 w-14 border-slate-200 text-slate-400 hover:text-primary hover:border-primary/30 transition-all active:scale-95"
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading || isSubmitting || !user}
-            title="Attach PDF or Text"
+            title="Attach Document"
           >
-            <Paperclip className="w-4 h-4" />
+            <Paperclip className="w-5 h-5" />
           </Button>
-          <Input
-            placeholder={user ? "Describe the emergency or ask for help..." : "Please sign in to chat..."}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={isLoading || isSubmitting || !user}
-            className="flex-1 focus-visible:ring-primary"
-          />
+          <div className="flex-1 relative">
+            <Input
+              placeholder={user ? "Describe the emergency..." : "Please sign in..."}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              disabled={isLoading || isSubmitting || !user}
+              className="h-14 px-6 rounded-2xl bg-white border-slate-200 focus-visible:ring-primary font-medium text-slate-700 placeholder:text-slate-300"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1">
+               <Button 
+                type="button" 
+                variant="ghost"
+                size="icon"
+                onClick={toggleListening}
+                disabled={isLoading || isSubmitting || !user}
+                className={`rounded-xl h-10 w-10 transition-all ${isListening ? "bg-red-50 text-red-500 animate-pulse" : "text-slate-400 hover:text-primary hover:bg-primary/5"}`}
+              >
+                {isListening ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </Button>
+            </div>
+          </div>
           <Button 
-            type="button" 
-            variant={isListening ? "destructive" : "outline"} 
+            type="submit" 
+            disabled={isLoading || isSubmitting || (!input.trim() && !selectedFile) || !user} 
+            className="rounded-2xl h-14 w-14 shadow-xl shadow-primary/20 transition-all active:scale-95"
             size="icon"
-            onClick={toggleListening}
-            disabled={isLoading || isSubmitting || !user}
-            className={isListening ? "animate-pulse" : ""}
           >
-            {isListening ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-          </Button>
-          <Button type="submit" disabled={isLoading || isSubmitting || (!input.trim() && !selectedFile) || !user} size="icon">
-            <Send className="w-4 h-4" />
+            <Send className="w-5 h-5" />
           </Button>
         </form>
       </CardFooter>

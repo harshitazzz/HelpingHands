@@ -118,106 +118,120 @@ export function PredictiveTab() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 relative">
-        <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-          <Brain className="w-32 h-32" />
-        </div>
-        <div className="relative z-10 space-y-6">
-          <div>
-            <h2 className="text-3xl font-black tracking-tight text-slate-900">Predictive Insights</h2>
-            <p className="text-slate-500 mt-2 max-w-2xl">
-              AI-driven humanitarian forecasting based on real-time news, weather, and socio-economic trends.
-            </p>
+    <div className="space-y-12">
+      <div className="relative overflow-hidden group">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#E0F2FE]/40 to-[#DCFCE7]/40 blur-3xl -z-10 opacity-60" />
+        <div className="glass p-10 rounded-[3rem] border-white/50 shadow-2xl shadow-slate-200/50">
+          <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
+            <Brain className="w-48 h-48" />
           </div>
+          
+          <div className="relative z-10 space-y-8">
+            <div className="max-w-3xl">
+              <div className="flex items-center gap-2 text-primary mb-4">
+                <Brain className="w-6 h-6" />
+                <span className="text-xs font-black uppercase tracking-[0.2em]">AI Intelligence Unit</span>
+              </div>
+              <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-slate-900 leading-tight">Predictive Humanitarian Insights</h2>
+              <p className="text-slate-500 mt-4 text-lg font-medium leading-relaxed">
+                Anticipating community needs through real-time analysis of global news, weather patterns, and socio-economic trends.
+              </p>
+            </div>
 
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-            <div className="relative flex-1 w-full">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input 
-                  placeholder="Search for a region or city..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 rounded-2xl h-12 border-slate-200 focus:ring-primary bg-white"
-                />
+            <div className="flex flex-col md:flex-row gap-6 items-stretch md:items-center">
+              <div className="relative flex-1">
+                <div className="relative group/search">
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within/search:text-primary transition-colors" />
+                  <Input 
+                    placeholder="Search region, city or country..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-14 rounded-2xl h-16 border-slate-200 focus-visible:ring-primary bg-white/80 backdrop-blur-sm text-lg font-medium shadow-sm"
+                  />
+                </div>
+                
+                <AnimatePresence>
+                  {suggestions.length > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="absolute top-full left-0 right-0 mt-3 bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-slate-100 z-[100] overflow-hidden p-2"
+                    >
+                      <div className="max-h-[350px] overflow-y-auto">
+                        {suggestions.map((s, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleSelectLocation(s)}
+                            className="w-full text-left px-6 py-4 hover:bg-slate-50 rounded-2xl text-sm flex items-center gap-4 transition-all group/item"
+                          >
+                            <div className="bg-slate-100 p-3 rounded-xl group-hover/item:bg-primary/10 transition-colors">
+                              <MapPin className="w-5 h-5 text-slate-400 group-hover/item:text-primary" />
+                            </div>
+                            <div className="flex flex-col overflow-hidden">
+                              <span className="font-black text-slate-900 text-base">{s.display_name.split(',')[0]}</span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">{s.display_name}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
               
-              <AnimatePresence>
-                {suggestions.length > 0 && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-200 z-[100] overflow-hidden"
-                  >
-                    <div className="max-h-[300px] overflow-y-auto">
-                      {suggestions.map((s, i) => (
-                        <button
-                          key={i}
-                          onClick={() => handleSelectLocation(s)}
-                          className="w-full text-left px-5 py-4 hover:bg-slate-50 text-sm flex items-center gap-3 transition-colors border-b border-slate-100 last:border-none group"
-                        >
-                          <div className="bg-slate-100 p-2 rounded-lg group-hover:bg-primary/10 transition-colors">
-                            <MapPin className="w-4 h-4 text-slate-400 group-hover:text-primary" />
-                          </div>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="font-bold text-slate-900 truncate">{s.display_name.split(',')[0]}</span>
-                            <span className="text-[10px] text-slate-400 truncate">{s.display_name}</span>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            
-            <div className="flex items-center gap-3 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100">
-              <Navigation className="w-4 h-4 text-primary" />
-              <span className="text-sm font-bold text-slate-700">Current: {location}</span>
+              <div className="flex items-center gap-4 bg-white/60 backdrop-blur-md px-8 py-4 rounded-[1.5rem] border border-white shadow-sm self-start md:self-auto">
+                <Navigation className="w-5 h-5 text-primary animate-pulse" />
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Region</span>
+                  <span className="text-base font-black text-slate-900">{location}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {loading ? (
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-8">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-64 bg-slate-100 animate-pulse rounded-3xl" />
+            <div key={i} className="h-72 bg-white/50 border border-slate-100 animate-pulse rounded-[2.5rem]" />
           ))}
         </div>
       ) : (
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-8">
           {predictions.map((p, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
+              transition={{ delay: i * 0.1, duration: 0.5 }}
             >
-              <Card className="h-full border-none shadow-md hover:shadow-xl transition-all duration-300 rounded-3xl overflow-hidden group">
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="p-2 bg-slate-50 rounded-xl group-hover:bg-primary/10 transition-colors">
+              <Card className="h-full border-none shadow-xl hover:shadow-2xl transition-all duration-500 rounded-[2.5rem] overflow-hidden bg-white group hover:-translate-y-2">
+                <CardHeader className="p-8 pb-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-primary/10 transition-colors">
                       {getTypeIcon(p.type)}
                     </div>
-                    <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100">
-                      {p.probability} Prob.
+                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 rounded-full px-4 py-1 font-black text-[10px]">
+                      {p.probability}% PROBABILITY
                     </Badge>
                   </div>
-                  <CardTitle className="text-xl font-bold leading-tight">{p.title}</CardTitle>
-                  <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
-                    <MapPin className="w-3 h-3" /> {p.location}
+                  <CardTitle className="text-2xl font-black text-slate-900 leading-tight group-hover:text-primary transition-colors">{p.title}</CardTitle>
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 mt-3">
+                    <MapPin className="w-3 h-3 text-primary" /> {p.location}
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-slate-600 leading-relaxed">
+                <CardContent className="p-8 pt-4 space-y-6">
+                  <p className="text-slate-500 font-medium leading-relaxed">
                     {p.description}
                   </p>
-                  <div className="mt-6 pt-4 border-t border-slate-50 flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">AI Analysis</span>
-                    <TrendingUp className="w-4 h-4 text-primary opacity-50" />
+                  <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-primary opacity-30" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Live Trend Analysis</span>
+                    </div>
+                    <TrendingUp className="w-5 h-5 text-primary opacity-50 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </CardContent>
               </Card>
@@ -226,17 +240,23 @@ export function PredictiveTab() {
         </div>
       )}
 
-      <Card className="bg-slate-900 text-white border-none rounded-3xl overflow-hidden">
-        <CardContent className="p-8 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="space-y-2">
-            <h3 className="text-xl font-bold">Want to help prepare?</h3>
-            <p className="text-slate-400 text-sm">Join our early response team to be notified as soon as these predictions reach critical status.</p>
+      <motion.div 
+        whileHover={{ scale: 1.01 }}
+        className="bg-slate-900 rounded-[3rem] p-12 text-white shadow-2xl relative overflow-hidden group"
+      >
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-[100px] -mr-32 -mt-32 group-hover:bg-primary/30 transition-colors duration-700" />
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="space-y-3 text-center md:text-left">
+            <h3 className="text-3xl font-black tracking-tight">Proactive Response Network</h3>
+            <p className="text-slate-400 text-lg font-medium max-w-xl">
+              Don't wait for the emergency. Join our early warning team and help communities prepare before crises arrive.
+            </p>
           </div>
-          <button className="bg-primary hover:bg-primary/90 text-white px-8 py-3 rounded-full font-bold transition-all whitespace-nowrap">
-            Join Response Team
-          </button>
-        </CardContent>
-      </Card>
+          <Button className="bg-primary hover:bg-primary/90 text-white h-16 px-12 rounded-2xl font-black text-lg shadow-xl shadow-primary/20 transition-all active:scale-95 whitespace-nowrap">
+            Enroll in Early Response
+          </Button>
+        </div>
+      </motion.div>
     </div>
   );
 }

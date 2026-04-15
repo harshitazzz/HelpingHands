@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
-import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, Paperclip, X, File, Sparkles } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, Paperclip, X, File, Sparkles, HandHelping } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,7 +42,7 @@ export function ReportUpload() {
       
       if (text.trim()) {
         setReportText(text);
-        toast.success('File content loaded! Click "Process Report" to analyze.');
+        toast.success('File content loaded! Beacon is ready to analyze.');
       } else {
         toast.error('Could not extract text from this file.');
       }
@@ -61,7 +61,7 @@ export function ReportUpload() {
     try {
       const data = await getStructuredEmergencyData(reportText);
       setStructuredData(data);
-      toast.success('Report processed successfully!');
+      toast.success('Report analyzed successfully!');
     } catch (error) {
       console.error('Processing error:', error);
       toast.error('Failed to process report');
@@ -82,7 +82,6 @@ export function ReportUpload() {
         source: 'ngo',
       });
 
-      // Auto-assign volunteers
       const matchCount = await autoAssignVolunteers(
         docRef.id, 
         structuredData.required_skills || [], 
@@ -91,9 +90,9 @@ export function ReportUpload() {
       );
       
       if (matchCount > 0) {
-        toast.success(`Emergency created! ${matchCount} matching volunteers notified.`);
+        toast.success(`Mission created! ${matchCount} heroes notified.`);
       } else {
-        toast.success('Emergency request created! No immediate matches found.');
+        toast.success('Mission created! Our team will handle coordination.');
       }
       
       setStructuredData(null);
@@ -101,158 +100,201 @@ export function ReportUpload() {
       setSelectedFile(null);
     } catch (error) {
       console.error('Save error:', error);
-      toast.error('Failed to save request');
+      toast.error('Failed to save to database');
     }
   };
 
-  const removeFile = () => {
-    setSelectedFile(null);
-    setReportText('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
   return (
-    <Card className="w-full shadow-lg border-slate-200">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="w-5 h-5 text-primary" />
-          NGO Report Upload
-        </CardTitle>
-        <CardDescription>
-          Upload a PDF/Text report or paste raw text. Beacon will extract structured data for volunteer matching.
+    <Card className="w-full shadow-none border-none bg-transparent">
+      <CardHeader className="px-0 pb-8">
+        <div className="flex items-center gap-4 mb-2">
+          <div className="bg-primary/10 p-3 rounded-2xl">
+            <FileText className="w-6 h-6 text-primary" />
+          </div>
+          <CardTitle className="text-3xl font-black text-slate-900 tracking-tight">Report Intelligence</CardTitle>
+        </div>
+        <CardDescription className="text-lg font-medium text-slate-500 max-w-2xl">
+          Beacon extracts structured mission data from your raw reports for instant volunteer coordination.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-4">
-          <div 
-            className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${selectedFile ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-primary/50 hover:bg-slate-50'}`}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept=".pdf,.txt"
-              onChange={handleFileChange}
-            />
-            {selectedFile ? (
-              <div className="flex flex-col items-center gap-2">
-                <div className="bg-primary/10 p-3 rounded-full">
-                  <File className="w-8 h-8 text-primary" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-900">{selectedFile.name}</span>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); removeFile(); }}
-                    className="p-1 hover:bg-slate-200 rounded-full transition-colors"
+      
+      <CardContent className="space-y-8 px-0">
+        <div className="grid md:grid-cols-2 gap-8">
+          <div className="space-y-6">
+            <div 
+              className={`border-4 border-dashed rounded-[2.5rem] p-12 text-center transition-all cursor-pointer group relative overflow-hidden ${selectedFile ? 'border-primary bg-primary/5 shadow-inner' : 'border-slate-100 hover:border-primary/30 hover:bg-slate-50'}`}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept=".pdf,.txt"
+                onChange={handleFileChange}
+              />
+              
+              {selectedFile ? (
+                <div className="flex flex-col items-center gap-4">
+                  <motion.div 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="bg-white p-6 rounded-[2rem] shadow-xl shadow-primary/10"
                   >
-                    <X className="w-4 h-4 text-slate-500" />
-                  </button>
+                    <File className="w-12 h-12 text-primary" />
+                  </motion.div>
+                  <div className="space-y-1">
+                    <p className="font-black text-xl text-slate-900 line-clamp-1 px-4">{selectedFile.name}</p>
+                    <p className="text-xs font-black text-primary uppercase tracking-[0.2em]">{(selectedFile.size / 1024).toFixed(1)} KB • Document Verified</p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); setSelectedFile(null); setReportText(''); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                    className="rounded-xl hover:bg-red-50 hover:text-red-500 font-bold"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Remove File
+                  </Button>
                 </div>
-                <p className="text-xs text-slate-500">{(selectedFile.size / 1024).toFixed(1)} KB • Ready to process</p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2">
-                <div className="bg-slate-100 p-3 rounded-full">
-                  <Upload className="w-8 h-8 text-slate-400" />
+              ) : (
+                <div className="flex flex-col items-center gap-4 py-8">
+                  <div className="bg-white p-6 rounded-[2rem] shadow-lg shadow-slate-100 group-hover:scale-110 transition-transform">
+                    <Upload className="w-12 h-12 text-slate-300 group-hover:text-primary transition-colors" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-black text-xl text-slate-900 tracking-tight">Upload NGO Report</p>
+                    <p className="text-sm font-medium text-slate-400">PDF or TXT documents supported</p>
+                  </div>
                 </div>
-                <p className="font-bold text-slate-700">Click to upload or drag and drop</p>
-                <p className="text-xs text-slate-500 text-center">Support for PDF and TXT files. Max size 5MB.</p>
+              )}
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-slate-100"></span>
               </div>
-            )}
+              <div className="relative flex justify-center">
+                <span className="bg-[#FCFDF7] px-6 text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Coordination Intelligence</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Text Context</p>
+              <Textarea
+                placeholder="Paste the raw report content here for Beacon to analyze..."
+                value={reportText}
+                onChange={(e) => setReportText(e.target.value)}
+                className="min-h-[220px] p-6 resize-none focus-visible:ring-primary rounded-[2rem] border-slate-100 bg-white text-base font-medium placeholder:text-slate-300 shadow-sm"
+              />
+            </div>
+            
+            <Button 
+              onClick={handleProcess} 
+              disabled={isProcessing || !reportText.trim()}
+              className="w-full h-16 rounded-2xl font-black text-lg shadow-2xl shadow-primary/30 transition-all active:scale-95 disabled:shadow-none"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-6 h-6 mr-3 animate-spin" />
+                  Analyzing Report...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-6 h-6 mr-3" />
+                  Extract Intelligence
+                </>
+              )}
+            </Button>
           </div>
 
           <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-slate-100"></span>
-            </div>
-            <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest">
-              <span className="bg-white px-4 text-slate-300">Or Paste Text</span>
-            </div>
-          </div>
-
-          <Textarea
-            placeholder="Example: Flood in Sonipat, 50 people affected, need food and medical help immediately..."
-            value={reportText}
-            onChange={(e) => setReportText(e.target.value)}
-            className="min-h-[150px] resize-none focus-visible:ring-primary rounded-2xl border-slate-200"
-          />
-          
-          <Button 
-            onClick={handleProcess} 
-            disabled={isProcessing || !reportText.trim()}
-            className="w-full h-12 rounded-2xl font-black shadow-lg shadow-primary/20"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Processing with Gemini...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Process Report
-              </>
-            )}
-          </Button>
-        </div>
-
-        {structuredData && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-4 rounded-xl border bg-slate-50 space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h4 className="font-bold text-slate-900">Extracted Information</h4>
-              <Badge variant={structuredData.urgency === 'critical' ? 'destructive' : 'default'}>
-                {structuredData.urgency.toUpperCase()} URGENCY
-              </Badge>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-slate-500 text-xs font-semibold uppercase">Issue</p>
-                <p className="font-medium">{structuredData.issue}</p>
-              </div>
-              <div>
-                <p className="text-slate-500 text-xs font-semibold uppercase">Location</p>
-                <p className="font-medium">{structuredData.location}</p>
-              </div>
-              <div>
-                <p className="text-slate-500 text-xs font-semibold uppercase">Affected People</p>
-                <p className="font-medium">{structuredData.number_of_people_affected || 'Unknown'}</p>
-              </div>
-              <div>
-                <p className="text-slate-500 text-xs font-semibold uppercase">Volunteers Needed</p>
-                <p className="font-medium">{structuredData.volunteers_needed || 'TBD'}</p>
-              </div>
-            </div>
-
-            {structuredData.required_skills && (
-              <div>
-                <p className="text-slate-500 text-xs font-semibold uppercase mb-2">Required Skills</p>
-                <div className="flex flex-wrap gap-2">
-                  {structuredData.required_skills.map((skill: string, idx: number) => (
-                    <Badge key={idx} variant="outline" className="bg-white">
-                      {skill}
+            <AnimatePresence mode="wait">
+              {structuredData ? (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="glass p-10 rounded-[3rem] space-y-8 border-white shadow-2xl sticky top-4"
+                >
+                  <div className="flex items-center justify-between border-b border-white pb-6">
+                    <div className="space-y-1">
+                      <h4 className="text-2xl font-black text-slate-900 tracking-tight">Analysis Results</h4>
+                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">Confidence: High</p>
+                    </div>
+                    <Badge className={structuredData.urgency === 'critical' ? 'bg-red-100 text-red-600 border-none px-4 py-2 rounded-xl font-black' : 'bg-primary/10 text-primary border-none px-4 py-2 rounded-xl font-black'}>
+                      {structuredData.urgency.toUpperCase()}
                     </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
+                  </div>
+                  
+                  <div className="grid gap-6">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Identified Issue</p>
+                      <p className="text-xl font-black text-slate-900 leading-tight">{structuredData.issue}</p>
+                    </div>
+                    <div className="space-y-1 text-right">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Location Accuracy</p>
+                      <p className="text-xl font-black text-slate-900 flex items-center justify-end gap-2">
+                        <MapPin className="w-5 h-5 text-primary" /> {structuredData.location}
+                      </p>
+                    </div>
+                  </div>
 
-            <div className="flex gap-2 pt-2">
-              <Button onClick={handleSave} className="flex-1 bg-green-600 hover:bg-green-700">
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Confirm & Save to Database
-              </Button>
-              <Button variant="outline" onClick={() => setStructuredData(null)}>
-                Discard
-              </Button>
-            </div>
-          </motion.div>
-        )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white/50 p-6 rounded-[2rem] border border-white space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <Users className="w-4 h-4 text-primary" /> Affected
+                      </p>
+                      <p className="text-2xl font-black text-slate-900">{structuredData.number_of_people_affected}</p>
+                    </div>
+                    <div className="bg-white/50 p-6 rounded-[2rem] border border-white space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <HandHelping className="w-4 h-4 text-primary" /> Needed
+                      </p>
+                      <p className="text-2xl font-black text-slate-900">{structuredData.volunteers_needed}</p>
+                    </div>
+                  </div>
+
+                  {structuredData.required_skills && (
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Skill Requirements</p>
+                      <div className="flex flex-wrap gap-2">
+                        {structuredData.required_skills.map((skill: string, idx: number) => (
+                          <Badge key={idx} variant="outline" className="bg-white border-none shadow-sm px-4 py-2 rounded-xl text-slate-700 font-bold">
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-4 pt-4">
+                    <Button onClick={handleSave} className="flex-1 h-14 rounded-2xl bg-primary hover:bg-green-600 font-black shadow-xl shadow-primary/20 transition-all active:scale-95">
+                      <CheckCircle2 className="w-5 h-5 mr-2" />
+                      Create Mission
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => setStructuredData(null)}
+                      className="h-14 px-8 rounded-2xl font-black text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      Discard
+                    </Button>
+                  </div>
+                </motion.div>
+              ) : (
+                <div className="bg-slate-50/50 rounded-[3rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center p-20 text-center space-y-6 h-full min-h-[500px]">
+                  <div className="bg-white p-6 rounded-[2rem] shadow-sm">
+                    <Sparkles className="w-10 h-10 text-slate-200" />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-2xl font-black text-slate-900 tracking-tight leading-none">Intelligence Engine Ready</p>
+                    <p className="text-slate-400 font-medium max-w-xs">Analysis will appear here once you process your report.</p>
+                  </div>
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

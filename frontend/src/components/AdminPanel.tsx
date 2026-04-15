@@ -129,16 +129,12 @@ export function AdminPanel() {
   const handleRemoveVolunteer = async (id: string) => {
     if (!window.confirm('Are you sure you want to remove this volunteer?')) return;
     try {
-      // Try to delete from volunteers first
       await deleteDoc(doc(db, 'volunteers', id));
-      
-      // Try to delete from users as well (optional, might fail if not exists)
       try {
         await deleteDoc(doc(db, 'users', id));
       } catch (userErr) {
         console.warn('Could not delete user record, might not exist:', userErr);
       }
-      
       toast.success('Volunteer removed');
     } catch (error: any) {
       console.error('Remove volunteer error:', error);
@@ -194,289 +190,318 @@ export function AdminPanel() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-        <div className="flex items-center gap-4">
-          <div className="bg-green-100 p-3 rounded-xl">
-            <ShieldCheck className="w-8 h-8 text-green-600" />
+    <div className="space-y-12">
+      <div className="relative overflow-hidden group">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#DCFCE7]/30 to-[#FEF9C3]/30 blur-3xl -z-10 opacity-60" />
+        <div className="glass p-10 rounded-[3rem] border-white/50 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="flex items-center gap-6">
+            <div className="bg-slate-900 p-4 rounded-[1.5rem] shadow-2xl rotate-3 group-hover:rotate-0 transition-transform">
+              <ShieldCheck className="w-10 h-10 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-4xl font-black tracking-tighter text-slate-900 leading-none mb-2">Command Center</h2>
+              <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px]">L4 Systems Administrator</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-black tracking-tight">System Administration</h2>
-            <p className="text-sm text-muted-foreground">Authenticated as System Administrator</p>
+          <div className="flex flex-wrap gap-2 bg-slate-100/50 p-1.5 rounded-[2rem] border border-slate-200/50 backdrop-blur-sm">
+            <button 
+              onClick={() => setActiveTab('requests')}
+              className={`px-8 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === 'requests' ? 'bg-white shadow-lg text-primary scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Missions
+              </div>
+            </button>
+            <button 
+              onClick={() => setActiveTab('unsolved')}
+              className={`px-8 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === 'unsolved' ? 'bg-white shadow-lg text-red-500 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4" />
+                Alerts
+              </div>
+            </button>
+            <button 
+              onClick={() => setActiveTab('volunteers')}
+              className={`px-8 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === 'volunteers' ? 'bg-white shadow-lg text-primary scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Registry
+              </div>
+            </button>
           </div>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant={activeTab === 'requests' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('requests')}
-            className="rounded-full"
-          >
-            <AlertTriangle className="w-4 h-4 mr-2" />
-            Manage Requests
-          </Button>
-          <Button 
-            variant={activeTab === 'unsolved' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('unsolved')}
-            className="rounded-full"
-          >
-            <ShieldAlert className="w-4 h-4 mr-2" />
-            Unsolved Issues
-          </Button>
-          <Button 
-            variant={activeTab === 'volunteers' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('volunteers')}
-            className="rounded-full"
-          >
-            <Users className="w-4 h-4 mr-2" />
-            Manage Volunteers
-          </Button>
         </div>
       </div>
 
-      <div className="grid gap-6">
-        {activeTab === 'requests' && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <RefreshCcw className="w-5 h-5 text-primary" />
-                  Emergency Requests Log
-                </CardTitle>
-                <CardDescription>Monitor and moderate all active help requests.</CardDescription>
-              </div>
-              <div className="flex gap-2">
-                {(['all', 'today', 'week'] as const).map((f) => (
-                  <Button
-                    key={f}
-                    variant={timeFilter === f ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setTimeFilter(f)}
-                    className="capitalize h-8 text-xs"
-                  >
-                    {f}
-                  </Button>
-                ))}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[600px] pr-4">
-                <div className="space-y-4">
-                  {filterByTime(requests).map((req) => (
-                    <div key={req.id} className={`group p-4 border rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-between gap-4 ${selectedRequest?.id === req.id ? 'border-primary ring-1 ring-primary' : ''}`}>
-                      <div className="space-y-1 flex-1">
-                        <div className="flex items-center gap-2">
-                          <Badge className={req.urgency === 'critical' ? 'bg-red-600' : 'bg-blue-500'}>
-                            {req.urgency.toUpperCase()}
-                          </Badge>
-                          <h4 className="font-bold text-slate-900">{req.issue}</h4>
-                        </div>
-                        <p className="text-xs text-slate-500 flex items-center gap-1">
-                          <MapPin className="w-3 h-3" /> {req.location}
-                        </p>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          <Badge variant="outline" className="text-[10px]">ID: {req.id.slice(0, 8)}</Badge>
-                          <Badge variant="outline" className="text-[10px]">Status: {req.status}</Badge>
-                          <Badge variant="outline" className="text-[10px]">Raised: {req.createdAt?.toDate().toLocaleDateString()}</Badge>
-                          {req.assignedVolunteers && req.assignedVolunteers.length > 0 && (
-                            <Badge variant="secondary" className="text-[10px] bg-green-50 text-green-700 border-green-100">
-                              <Users className="w-3 h-3 mr-1" />
-                              Assigned: {req.assignedVolunteers.length}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant={selectedRequest?.id === req.id ? 'default' : 'outline'}
-                          size="sm" 
-                          className={selectedRequest?.id === req.id ? '' : 'text-primary hover:bg-primary/5 border-primary/20'}
-                          onClick={() => setSelectedRequest(selectedRequest?.id === req.id ? null : req)}
-                          title="Select to manually assign"
+      <div className="grid gap-12">
+        <AnimatePresence mode="wait">
+          {activeTab === 'requests' && (
+            <motion.div
+              key="missions"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.5 }}
+            >
+              <Card className="rounded-[3rem] border-white shadow-2xl overflow-hidden bg-white">
+                <CardHeader className="p-10 pb-4 flex flex-row items-center justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-3xl font-black text-slate-900 tracking-tighter">Mission Control</CardTitle>
+                    <CardDescription className="font-medium text-slate-500">Global response coordination log</CardDescription>
+                  </div>
+                  <div className="flex gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+                    {(['all', 'today', 'week'] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setTimeFilter(f)}
+                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${timeFilter === f ? 'bg-white shadow-md text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                </CardHeader>
+                <CardContent className="p-10 pt-0">
+                  <ScrollArea className="h-[650px] pr-6">
+                    <div className="space-y-6">
+                      {filterByTime(requests).map((req) => (
+                        <motion.div 
+                          layout
+                          key={req.id} 
+                          className={`group p-8 border rounded-[2rem] transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-8 ${selectedRequest?.id === req.id ? 'bg-primary/5 border-primary shadow-2xl shadow-primary/10' : 'bg-slate-50/50 border-slate-100 hover:bg-white hover:shadow-xl hover:border-white'}`}
                         >
-                          <UserPlus className="w-4 h-4 mr-2" />
-                          {selectedRequest?.id === req.id ? 'Selecting...' : 'Assign'}
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-primary hover:bg-primary/5 border-primary/20"
-                          onClick={() => handleAutoAssign(req)}
-                          title="Trigger Auto-Assignment"
-                        >
-                          <RefreshCcw className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm" 
-                          onClick={() => handleDeleteRequest(req.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  {requests.length === 0 && (
-                    <div className="text-center py-12 text-slate-400">
-                      <AlertTriangle className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                      <p>No active emergency requests found in the database.</p>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        )}
-
-        {activeTab === 'unsolved' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ShieldAlert className="w-5 h-5 text-red-600" />
-                Unsolved Issues (&gt; 1 Week)
-              </CardTitle>
-              <CardDescription>Critical issues that haven't been resolved within 7 days.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[600px] pr-4">
-                <div className="space-y-4">
-                  {requests.filter(r => {
-                    if (!r.createdAt) return false;
-                    const oneWeekAgo = new Date();
-                    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-                    return r.createdAt.toDate() < oneWeekAgo && r.status !== 'resolved';
-                  }).map((req) => (
-                    <div key={req.id} className="p-4 border-2 border-red-100 bg-red-50/30 rounded-xl flex items-center justify-between gap-4">
-                      <div className="space-y-1 flex-1">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="destructive">CRITICAL DELAY</Badge>
-                          <h4 className="font-bold text-slate-900">{req.issue}</h4>
-                        </div>
-                        <p className="text-xs text-slate-600 flex items-center gap-1">
-                          <MapPin className="w-3 h-3" /> {req.location}
-                        </p>
-                        <p className="text-[10px] text-red-600 font-medium mt-1">
-                          Raised on: {req.createdAt?.toDate().toLocaleString()}
-                        </p>
-                        <div className="flex gap-2 mt-2">
-                          <Badge variant="outline" className="text-[10px] bg-white">ID: {req.id.slice(0, 8)}</Badge>
-                          <Badge variant="outline" className="text-[10px] bg-white">Status: {req.status}</Badge>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="bg-white border-red-200 text-red-600 hover:bg-red-50"
-                          onClick={() => handleAutoAssign(req)}
-                        >
-                          <RefreshCcw className="w-4 h-4 mr-2" /> Re-trigger Matching
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  {requests.filter(r => {
-                    if (!r.createdAt) return false;
-                    const oneWeekAgo = new Date();
-                    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-                    return r.createdAt.toDate() < oneWeekAgo && r.status !== 'resolved';
-                  }).length === 0 && (
-                    <div className="text-center py-12 text-slate-400">
-                      <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-green-500 opacity-50" />
-                      <p>All recent issues are being handled within the 1-week window.</p>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        )}
-
-        {activeTab === 'volunteers' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-primary" />
-                Volunteer Registry
-              </CardTitle>
-              <CardDescription>
-                {selectedRequest 
-                  ? `Select a volunteer to assign to: ${selectedRequest.issue}` 
-                  : "Manage registered volunteers and their availability."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[600px] pr-4">
-                <div className="space-y-4">
-                  {volunteers.map((v) => (
-                    <div key={v.id} className={`p-4 border rounded-xl flex items-center justify-between gap-4 ${selectedRequest && v.availability === 'available' ? 'border-green-200 bg-green-50/20' : ''}`}>
-                      <div className="flex items-center gap-4">
-                        <div className="bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center font-bold text-slate-600">
-                          {v.name?.charAt(0)}
-                        </div>
-                        <div className="space-y-0.5">
-                          <h4 className="font-bold text-slate-900">{v.name}</h4>
-                          <div className="flex flex-col gap-0.5">
-                            <p className="text-xs text-slate-500 flex items-center gap-1">
-                              <MapPin className="w-3 h-3" /> {v.location}
-                            </p>
-                            <p className="text-xs text-slate-500 flex items-center gap-1">
-                              <Mail className="w-3 h-3" /> {v.email}
-                            </p>
+                          <div className="space-y-4 flex-1">
+                            <div className="flex items-center gap-4">
+                              <Badge className={req.urgency === 'critical' ? 'bg-red-50 text-red-500 border-none px-4 py-2 rounded-xl font-black' : 'bg-primary/10 text-primary border-none px-4 py-2 rounded-xl font-black'}>
+                                {req.urgency.toUpperCase()}
+                              </Badge>
+                              <h4 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">{req.issue}</h4>
+                            </div>
+                            <div className="flex flex-wrap gap-6 items-center">
+                              <div className="flex items-center gap-2 text-slate-400 font-bold text-sm">
+                                <MapPin className="w-4 h-4 text-primary" /> {req.location}
+                              </div>
+                              <div className="flex items-center gap-2 text-slate-400 font-bold text-sm">
+                                <Clock className="w-4 h-4 text-primary" /> {req.createdAt?.toDate().toLocaleDateString()}
+                              </div>
+                              <Badge variant="outline" className="border-slate-200 text-slate-400 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest">#{req.id.slice(0, 8)}</Badge>
+                            </div>
+                            {req.assignedVolunteers && req.assignedVolunteers.length > 0 && (
+                              <div className="flex items-center gap-2 bg-green-500/10 w-fit px-4 py-2 rounded-xl border border-green-500/20">
+                                <Users className="w-4 h-4 text-green-600" />
+                                <span className="text-xs font-black text-green-700 uppercase tracking-widest">
+                                  {req.assignedVolunteers.length} Responders Engaged
+                                </span>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex gap-1 mt-1">
-                            {v.skills?.slice(0, 3).map((s: string, i: number) => (
-                              <Badge key={i} variant="secondary" className="text-[9px] py-0">{s}</Badge>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={v.availability === 'available' ? 'default' : 'outline'} className="capitalize">
-                            {v.availability}
-                          </Badge>
-                          {selectedRequest && v.availability === 'available' && (
+                          <div className="flex gap-4 shrink-0">
                             <Button 
-                              size="sm" 
-                              className="bg-green-600 hover:bg-green-700"
-                              onClick={() => handleManualAssign(v)}
-                              disabled={isAssigning}
+                              variant={selectedRequest?.id === req.id ? 'default' : 'outline'}
+                              className={`h-14 px-8 rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 ${selectedRequest?.id === req.id ? 'bg-slate-900 border-none' : 'border-slate-200 hover:border-primary/30 hover:text-primary'}`}
+                              onClick={() => setSelectedRequest(selectedRequest?.id === req.id ? null : req)}
                             >
-                              <UserPlus className="w-4 h-4 mr-2" />
-                              Assign Now
+                              <UserPlus className="w-5 h-5 mr-3" />
+                              {selectedRequest?.id === req.id ? 'Engaging...' : 'Assign'}
                             </Button>
-                          )}
+                            <Button 
+                              variant="outline" 
+                              className="h-14 w-14 rounded-2xl border-slate-200 text-primary hover:bg-primary/5 hover:border-primary/30 transition-all active:scale-95"
+                              onClick={() => handleAutoAssign(req)}
+                              title="Smart Match"
+                            >
+                              <RefreshCcw className="w-5 h-5" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              className="h-14 w-14 rounded-2xl text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all active:scale-95"
+                              onClick={() => handleDeleteRequest(req.id)}
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </Button>
+                          </div>
+                        </motion.div>
+                      ))}
+                      {requests.length === 0 && (
+                        <div className="text-center py-24 bg-slate-50/50 rounded-[3rem] border-2 border-dashed border-slate-100 flex flex-col items-center gap-6">
+                          <CheckCircle2 className="w-16 h-16 text-slate-200" />
+                          <div className="space-y-1">
+                            <p className="text-2xl font-black text-slate-900 tracking-tight">System Clear</p>
+                            <p className="text-slate-400 font-medium">All humanitarian vectors are currently stable.</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {activeTab === 'unsolved' && (
+            <motion.div
+              key="alerts"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.5 }}
+            >
+              <Card className="rounded-[3rem] border-red-100 shadow-2xl overflow-hidden bg-white">
+                <CardHeader className="p-10 pb-4">
+                  <div className="bg-red-50 p-3 rounded-2xl w-fit mb-4">
+                    <ShieldAlert className="w-8 h-8 text-red-500 animate-pulse" />
+                  </div>
+                  <CardTitle className="text-3xl font-black text-slate-900 tracking-tighter">High Latency Issues</CardTitle>
+                  <CardDescription className="font-medium text-slate-500">Missions exceeding the 7-day coordination SLA</CardDescription>
+                </CardHeader>
+                <CardContent className="p-10 pt-0">
+                  <ScrollArea className="h-[650px] pr-6">
+                    <div className="space-y-6">
+                      {requests.filter(r => {
+                        if (!r.createdAt) return false;
+                        const oneWeekAgo = new Date();
+                        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                        return r.createdAt.toDate() < oneWeekAgo && r.status !== 'resolved';
+                      }).map((req) => (
+                        <div key={req.id} className="p-8 border-2 border-red-50 bg-red-50/20 rounded-[2.5rem] flex flex-col lg:flex-row lg:items-center justify-between gap-8 animate-in zoom-in-95 duration-500">
+                          <div className="space-y-4 flex-1">
+                            <div className="flex items-center gap-4">
+                              <Badge className="bg-red-500 text-white border-none px-4 py-2 rounded-xl font-black shadow-lg shadow-red-200">CRITICAL DELAY</Badge>
+                              <h4 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">{req.issue}</h4>
+                            </div>
+                            <div className="flex flex-wrap gap-6 items-center">
+                              <div className="flex items-center gap-2 text-slate-500 font-bold text-sm">
+                                <MapPin className="w-4 h-4 text-red-500" /> {req.location}
+                              </div>
+                              <div className="flex items-center gap-2 text-red-600 font-extrabold text-[10px] uppercase tracking-widest bg-white h-8 px-4 rounded-full border border-red-100">
+                                Opened: {req.createdAt?.toDate().toLocaleDateString()}
+                              </div>
+                            </div>
+                          </div>
                           <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-blue-500 hover:bg-blue-50"
-                            onClick={() => simulateEmail(v.email, "Manual check-in from Administrator", v.name)}
-                            title="Send test/manual email"
+                            className="h-16 px-10 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black shadow-2xl shadow-red-200 transition-all active:scale-95"
+                            onClick={() => handleAutoAssign(req)}
                           >
-                            <Mail className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-red-500 hover:bg-red-50"
-                            onClick={() => handleRemoveVolunteer(v.id)}
-                          >
-                            <UserMinus className="w-4 h-4" />
+                            <RefreshCcw className="w-5 h-5 mr-3" /> Re-trigger Intelligence
                           </Button>
                         </div>
+                      ))}
+                      {requests.filter(r => {
+                        if (!r.createdAt) return false;
+                        const oneWeekAgo = new Date();
+                        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                        return r.createdAt.toDate() < oneWeekAgo && r.status !== 'resolved';
+                      }).length === 0 && (
+                        <div className="text-center py-24 bg-green-50/30 rounded-[3rem] border-2 border-dashed border-green-100 flex flex-col items-center gap-6">
+                          <ShieldCheck className="w-16 h-16 text-green-200" />
+                          <div className="space-y-1">
+                            <p className="text-2xl font-black text-slate-900 tracking-tight">SLA Optimized</p>
+                            <p className="text-slate-400 font-medium font-bold">All missions are within acceptable time parameters.</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                  {volunteers.length === 0 && (
-                    <div className="text-center py-12 text-slate-400">
-                      <Users className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                      <p>No registered volunteers found in the database.</p>
-                      <p className="text-[10px] mt-1">New volunteers will appear here once they complete the signup form.</p>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {activeTab === 'volunteers' && (
+            <motion.div
+              key="volunteers"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.5 }}
+            >
+              <Card className="rounded-[3rem] border-white shadow-2xl overflow-hidden bg-white">
+                <CardHeader className="p-10 pb-4">
+                  <CardTitle className="text-3xl font-black text-slate-900 tracking-tighter">Verified Responders</CardTitle>
+                  <CardDescription className="font-medium text-slate-500">
+                    {selectedRequest 
+                      ? <span className="text-primary font-black uppercase tracking-widest text-[10px]">Filtering for: {selectedRequest.issue}</span> 
+                      : "The human network driving global coordination."}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-10 pt-0">
+                  <ScrollArea className="h-[650px] pr-6">
+                    <div className="space-y-6">
+                      {volunteers.map((v) => (
+                        <div key={v.id} className={`p-8 border rounded-[2.5rem] flex flex-col lg:flex-row lg:items-center justify-between gap-8 transition-all ${selectedRequest && v.availability === 'available' ? 'bg-[#DCFCE7]/20 border-primary ring-2 ring-primary/10' : 'bg-slate-50/50 border-slate-100 hover:bg-white hover:shadow-xl hover:border-white'}`}>
+                          <div className="flex flex-col md:flex-row items-center gap-8">
+                            <Avatar className="w-20 h-20 border-[4px] border-white shadow-xl ring-2 ring-slate-100">
+                              <AvatarFallback className="text-2xl font-black bg-slate-900 text-white">
+                                {v.name?.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="space-y-2 text-center md:text-left">
+                              <h4 className="text-2xl font-black text-slate-900 tracking-tight leading-none">{v.name}</h4>
+                              <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                                <div className="flex items-center gap-2 text-slate-500 font-bold text-sm">
+                                  <MapPin className="w-4 h-4 text-primary" /> {v.location}
+                                </div>
+                                <div className="flex items-center gap-2 text-slate-500 font-bold text-sm">
+                                  <Mail className="w-4 h-4 text-primary" /> {v.email}
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-4">
+                                {v.skills?.slice(0, 3).map((s: string, i: number) => (
+                                  <Badge key={i} className="bg-white border-none shadow-sm px-3 py-1 rounded-lg text-slate-700 font-black text-[10px] uppercase tracking-wider">{s}</Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap justify-center lg:justify-end gap-3 shrink-0">
+                            <Badge className={`h-12 px-6 rounded-2xl font-black uppercase tracking-widest text-[10px] border-none shadow-lg ${v.availability === 'available' ? 'bg-green-500 text-white shadow-green-100' : 'bg-slate-100 text-slate-400'}`}>
+                              {v.availability}
+                            </Badge>
+                            {selectedRequest && v.availability === 'available' && (
+                              <Button 
+                                className="h-12 px-8 rounded-2xl bg-primary hover:bg-green-600 text-white font-black shadow-xl shadow-primary/20 transition-all active:scale-95"
+                                onClick={() => handleManualAssign(v)}
+                                disabled={isAssigning}
+                              >
+                                <UserPlus className="w-4 h-4 mr-2" />
+                                Assign L4
+                              </Button>
+                            )}
+                            <Button 
+                              variant="outline" 
+                              className="h-12 w-12 rounded-2xl border-slate-100 text-slate-400 hover:text-primary hover:bg-primary/5 transition-all active:scale-95"
+                              onClick={() => simulateEmail(v.email, "Manual check-in from Admin HQ", v.name)}
+                              title="HQ Check-in"
+                            >
+                              <Mail className="w-5 h-5" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              className="h-12 w-12 rounded-2xl text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all active:scale-95"
+                              onClick={() => handleRemoveVolunteer(v.id)}
+                            >
+                              <UserMinus className="w-5 h-5" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      {volunteers.length === 0 && (
+                        <div className="text-center py-24 bg-slate-50/50 rounded-[3rem] border-2 border-dashed border-slate-100 flex flex-col items-center gap-6">
+                           <Users className="w-16 h-16 text-slate-200" />
+                           <div className="space-y-1">
+                             <p className="text-2xl font-black text-slate-900 tracking-tight">Zero Responders</p>
+                             <p className="text-slate-400 font-medium">Coordinate with HQ to onboard new personnel.</p>
+                           </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

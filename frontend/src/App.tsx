@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { AIAssistant } from './components/AIAssistant';
 import { PredictiveTab } from './components/PredictiveTab';
 import { UserProfile } from './components/UserProfile';
 import { AdminPanel } from './components/AdminPanel';
 import { respondToInvitation } from './lib/matching';
 import { Dashboard } from './components/Dashboard';
+import { SplashScreen } from './components/SplashScreen';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -36,6 +38,7 @@ export default function App() {
   const [loginMode, setLoginMode] = useState<'login' | 'signup' | 'admin'>('login');
   const [authCreds, setAuthCreds] = useState({ email: '', password: '', username: '' });
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (u) => {
@@ -170,23 +173,32 @@ export default function App() {
       setShowLoginModal(false);
       toast.success('Signed in successfully');
     } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user') {
-        toast.info('Sign in cancelled');
-      } else if (error.code === 'auth/operation-not-allowed') {
-        toast.error('Google sign-in is not enabled in Firebase. Please contact the administrator.');
-      } else if (error.message && error.message.includes('invalid-credential')) {
-        toast.error('Authentication failed. Please check your account or try a different method.');
+      console.error('Login error full details:', error);
+      const errorCode = error.code || 'unknown';
+      const errorMessage = error.message || 'No specific error message available';
+
+      if (errorCode === 'auth/popup-closed-by-user') {
+        toast.info('Sign in cancelled: You closed the login popup.');
+      } else if (errorCode === 'auth/operation-not-allowed') {
+        toast.error('Google sign-in is not enabled in Firebase. Please enable it in the Firebase Console under Authentication > Sign-in method.');
+      } else if (errorCode === 'auth/unauthorized-domain') {
+        toast.error(`This domain is not authorized for Google Sign-in. Please add '${window.location.hostname}' to the Authorized Domains list in the Firebase Console.`);
+      } else if (errorMessage.toLowerCase().includes('invalid-credential')) {
+        toast.error('Authentication failed: Invalid credentials or account issue.');
       } else {
-        console.error('Login error:', error);
-        toast.error('Failed to sign in with Google');
+        toast.error(`Sign-in failed (${errorCode}): ${errorMessage}`);
       }
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#FCFDF7] font-sans text-slate-900">
+    <div className="min-h-screen bg-background font-sans text-slate-900 selection:bg-primary/20 transition-all duration-500">
+      <AnimatePresence>
+        {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+      </AnimatePresence>
+
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md">
+      <nav className="sticky top-0 z-50 w-full glass">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setActiveTab('dashboard')}>
             <div className="bg-primary p-2 rounded-2xl shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
@@ -250,8 +262,8 @@ export default function App() {
                  activeTab === 'predictive' ? 'Future Insights' : 'My Profile'}
               </h1>
             </div>
-            <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full lg:w-auto h-auto p-1.5 bg-slate-100/50 backdrop-blur-sm rounded-3xl border border-slate-200/50">
-              <TabsTrigger value="dashboard" className="flex items-center gap-2 py-3 rounded-2xl data-[state=active]:shadow-md">
+            <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full lg:w-auto h-auto p-1.5 bg-slate-100/50 backdrop-blur-sm rounded-[1.5rem] border border-slate-200/50">
+              <TabsTrigger value="dashboard" className="flex items-center gap-2 py-3 rounded-2xl data-[state=active]:shadow-lg data-[state=active]:bg-white">
                 <LayoutDashboard className="w-4 h-4" />
                 <span className="font-bold">Dashboard</span>
               </TabsTrigger>

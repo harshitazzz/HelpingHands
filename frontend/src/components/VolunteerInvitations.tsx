@@ -49,7 +49,6 @@ export function VolunteerInvitations() {
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const invs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Invitation));
       
-      // Fetch request details for each invitation
       const detailedInvs = await Promise.all(invs.map(async (inv) => {
         const reqDoc = await getDoc(doc(db, 'requests', inv.requestId));
         return {
@@ -78,7 +77,7 @@ export function VolunteerInvitations() {
   };
 
   const resendEmail = async (inv: Invitation) => {
-    const loadingToast = toast.loading("Resending email notification...");
+    const loadingToast = toast.loading("Resending mission notification...");
     try {
       const baseUrl = window.location.origin;
       const response = await fetch("/api/send-invitation", {
@@ -88,7 +87,7 @@ export function VolunteerInvitations() {
           email: user?.email,
           name: user?.displayName || "Volunteer",
           location: inv.requestDetails?.location || "Unknown",
-          issue: inv.requestDetails?.issue || "Emergency Request",
+          issue: inv.requestDetails?.issue || "Emergency Response Request",
           acceptLink: `${baseUrl}?accept=${inv.id}`,
           rejectLink: `${baseUrl}?reject=${inv.id}`
         })
@@ -99,27 +98,29 @@ export function VolunteerInvitations() {
       
       if (result.success) {
         if (result.simulated) {
-          toast.info("Email simulated. Set RESEND_API_KEY for real emails.");
+          toast.info("Notification simulated. Set RESEND_API_KEY for real emails.");
         } else {
-          toast.success("Email notification resent! Please check your inbox and Spam folder.");
+          toast.success("High-priority notification resent! Please check your secure inbox.");
         }
       } else {
         throw new Error(result.error);
       }
     } catch (error: any) {
       toast.dismiss(loadingToast);
-      toast.error(`Failed to resend email: ${error.message}`);
+      toast.error(`Failed to resend mission data: ${error.message}`);
     }
   };
 
   if (!user) {
     return (
-      <Card className="border-dashed">
-        <CardContent className="py-12 text-center space-y-4">
-          <Mail className="w-12 h-12 text-slate-300 mx-auto" />
-          <div className="space-y-1">
-            <h3 className="text-lg font-medium">Sign in to view invitations</h3>
-            <p className="text-sm text-slate-500">You'll see mission requests here once you're signed in.</p>
+      <Card className="border-4 border-dashed border-slate-100 rounded-[3rem] bg-white/50 backdrop-blur-md">
+        <CardContent className="py-24 text-center space-y-6">
+          <div className="bg-slate-50 p-6 rounded-full w-24 h-24 flex items-center justify-center mx-auto shadow-inner">
+            <Mail className="w-12 h-12 text-slate-200" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-3xl font-black text-slate-900 tracking-tight">Access Locked</h3>
+            <p className="text-slate-400 font-medium">Please sign in to view your assigned mission invitations.</p>
           </div>
         </CardContent>
       </Card>
@@ -128,79 +129,91 @@ export function VolunteerInvitations() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Clock className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <Clock className="w-10 h-10 animate-spin text-primary" />
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Retrieving Assignations</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Mission Invitations</h2>
-          <p className="text-sm text-muted-foreground">Accept or reject emergency response requests assigned to you.</p>
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4">
+        <div className="space-y-2">
+          <h2 className="text-4xl font-black text-slate-900 tracking-tight leading-tight">Active Missions</h2>
+          <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px]">Strategic Field Deployment Quota</p>
         </div>
-        <Badge variant="outline" className="bg-white">Pending: {invitations.length}</Badge>
+        <div className="flex items-center gap-3 bg-white px-6 py-3 rounded-2xl shadow-xl shadow-slate-100/50 border border-slate-50">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Queue Status</span>
+          <Badge className="bg-primary/10 text-primary border-none font-black text-sm px-4 rounded-xl">
+            {invitations.length} Pending
+          </Badge>
+        </div>
       </div>
 
-      <ScrollArea className="h-[500px] pr-4">
-        <div className="space-y-4">
+      <ScrollArea className="h-[600px] pr-6">
+        <div className="space-y-8 pb-10">
           <AnimatePresence mode="popLayout">
             {invitations.map((inv) => (
               <motion.div
                 key={inv.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
                 layout
               >
-                <Card className="border-l-4 border-l-primary overflow-hidden">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100">
-                        NEW INVITATION
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground">
+                <Card className="rounded-[2.5rem] border-white shadow-2xl overflow-hidden bg-white group hover:shadow-primary/5 transition-all duration-500">
+                  <CardHeader className="p-10 pb-4">
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="bg-primary/10 p-4 rounded-2xl group-hover:scale-110 transition-transform">
+                        <AlertCircle className="w-6 h-6 text-primary" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-300 bg-slate-50 px-4 py-2 rounded-full">
                         {inv.createdAt?.toDate().toLocaleDateString()}
                       </span>
                     </div>
-                    <CardTitle className="text-lg mt-2">
-                      {inv.requestDetails?.issue || 'Emergency Request'}
+                    <CardTitle className="text-3xl font-black text-slate-900 tracking-tighter group-hover:text-primary transition-colors">
+                      {inv.requestDetails?.issue || 'Emergency Field Request'}
                     </CardTitle>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <MapPin className="w-3 h-3" />
-                      {inv.requestDetails?.location || 'Unknown Location'}
+                    <div className="flex items-center gap-3 text-slate-500 font-bold tracking-tight mt-4 bg-slate-50/50 w-fit px-4 py-2 rounded-xl">
+                      <MapPin className="w-4 h-4 text-primary" />
+                      {inv.requestDetails?.location || 'Coordinate Unspecified'}
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="bg-slate-50 p-3 rounded-lg text-sm">
-                      <p className="font-medium text-slate-700">Mission Details:</p>
-                      <p className="text-slate-600 mt-1">
-                        You have been matched for this mission based on your skills. Your help is needed immediately.
-                      </p>
-                      <button 
-                        onClick={() => resendEmail(inv)}
-                        className="mt-2 text-xs text-primary hover:underline flex items-center gap-1"
-                      >
-                        <Send className="w-3 h-3" /> Didn't get the email? Resend notification
-                      </button>
+                  <CardContent className="p-10 pt-4 space-y-10">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-slate-50 rounded-[2rem] -z-10" />
+                      <div className="p-8 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-1.5 h-1.5 bg-primary rounded-full animate-ping" />
+                          <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Intelligence Summary</h5>
+                        </div>
+                        <p className="text-slate-600 font-medium leading-relaxed text-lg">
+                          Strategic algorithm has matched your profile expertise to this humanitarian vector. Immediate intervention is requested.
+                        </p>
+                        <button 
+                          onClick={() => resendEmail(inv)}
+                          className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/70 transition-colors flex items-center gap-2 pt-2"
+                        >
+                          <Send className="w-3.5 h-3.5" /> Synchronize secure credentials to mail
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-4">
                       <Button 
-                        className="flex-1 bg-green-600 hover:bg-green-700" 
+                        className="flex-1 h-16 rounded-2xl bg-slate-900 border-none text-white font-black text-lg shadow-2xl shadow-slate-200 active:scale-95 transition-all" 
                         onClick={() => handleResponse(inv.id, 'accepted')}
                       >
-                        <Check className="w-4 h-4 mr-2" />
+                        <Check className="w-6 h-6 mr-3" />
                         Accept Mission
                       </Button>
                       <Button 
-                        variant="outline" 
-                        className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        variant="ghost" 
+                        className="flex-1 h-16 rounded-2xl font-black text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all active:scale-95"
                         onClick={() => handleResponse(inv.id, 'rejected')}
                       >
-                        <X className="w-4 h-4 mr-2" />
-                        Decline
+                        <X className="w-6 h-6 mr-3" />
+                        Decline Deployment
                       </Button>
                     </div>
                   </CardContent>
@@ -210,15 +223,22 @@ export function VolunteerInvitations() {
           </AnimatePresence>
 
           {invitations.length === 0 && (
-            <div className="text-center py-12 border-2 border-dashed rounded-2xl bg-slate-50">
-              <Mail className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-slate-900">No pending invitations</h3>
-              <p className="text-slate-500">You're all caught up! New missions will appear here.</p>
-              <div className="mt-6 p-4 bg-blue-50 rounded-xl text-xs text-blue-700 max-w-md mx-auto">
-                <p className="font-bold mb-1 flex items-center justify-center gap-1">
-                  <AlertCircle className="w-3 h-3" /> Troubleshooting Emails
+            <div className="text-center py-32 bg-slate-50/50 rounded-[3rem] border-2 border-dashed border-slate-100 flex flex-col items-center gap-8">
+              <div className="bg-white p-6 rounded-[2rem] shadow-xl shadow-slate-100/50">
+                <Check className="w-12 h-12 text-green-400" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-3xl font-black text-slate-900 tracking-tight">Mission Board Clear</h3>
+                <p className="text-slate-400 font-bold uppercase tracking-[0.1em] text-xs">All assignations have been successfully resolved.</p>
+              </div>
+              <div className="p-6 bg-white/60 backdrop-blur-sm rounded-[2rem] border border-slate-100 max-w-md mx-6 text-left space-y-4">
+                <div className="flex items-center gap-2 text-primary">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Protocol Check</span>
+                </div>
+                <p className="text-slate-500 text-xs font-medium leading-relaxed">
+                  If you are expecting a mission but don't see it, please verify your profile visibility in identity settings and check your secure transit folders (Spam/Promotions).
                 </p>
-                <p>If you're not receiving emails, check your <strong>Spam</strong> or <strong>Promotions</strong> folder. Note that Resend free tier only sends to your own account email.</p>
               </div>
             </div>
           )}
