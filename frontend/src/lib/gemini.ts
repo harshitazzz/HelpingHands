@@ -59,7 +59,7 @@ export async function getChatResponse(
 export async function getStructuredEmergencyData(text: string) {
   const ai = getGeminiClient();
   const response = await ai.models.generateContent({
-    model: "gemini-1.5-flash",
+    model: "gemini-flash-latest",
     contents: `Extract structured emergency data from this text: "${text}"`,
     config: {
       responseMimeType: "application/json",
@@ -88,7 +88,7 @@ export async function getStructuredEmergencyData(text: string) {
 export async function getPredictiveAnalysis(location: string = "Global") {
   const ai = getGeminiClient();
   const response = await ai.models.generateContent({
-    model: "gemini-1.5-flash",
+    model: "gemini-flash-latest",
     contents: `Based on current news, weather patterns, and socio-economic trends for the region: "${location}", predict 3 potential humanitarian needs or risks that might arise in the next 30 days. 
     Consider factors like upcoming weather events, local news reports, and historical data for this area.
     Provide a title, specific location (within or near the region), description, and probability.`,

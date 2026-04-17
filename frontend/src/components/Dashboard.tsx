@@ -158,11 +158,11 @@ export function Dashboard({
     const resolvedWithTimes = completedRequests.filter((request: any) => request.createdAt && request.resolvedAt);
     const averageResolutionHours = resolvedWithTimes.length
       ? resolvedWithTimes.reduce((sum: number, request: any) => {
-          const created = request.createdAt?.toDate?.() ?? null;
-          const resolved = request.resolvedAt?.toDate?.() ?? null;
-          if (!created || !resolved) return sum;
-          return sum + Math.max(0, (resolved.getTime() - created.getTime()) / (1000 * 60 * 60));
-        }, 0) / resolvedWithTimes.length
+        const created = request.createdAt?.toDate?.() ?? null;
+        const resolved = request.resolvedAt?.toDate?.() ?? null;
+        if (!created || !resolved) return sum;
+        return sum + Math.max(0, (resolved.getTime() - created.getTime()) / (1000 * 60 * 60));
+      }, 0) / resolvedWithTimes.length
       : 0;
 
     const locationCounts = completedRequests.reduce((acc: Record<string, number>, request) => {
@@ -285,13 +285,9 @@ export function Dashboard({
         <Card className="mesh-card overflow-hidden rounded-[2.5rem] border-none shadow-[0_20px_60px_rgba(114,149,165,0.14)]">
           <CardContent className="grid gap-8 p-8 lg:grid-cols-[1.35fr_0.95fr] lg:items-center">
             <div className="space-y-6">
-              <Badge className="rounded-full bg-white/80 px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-[#2a6b61]">
-                <Sparkles className="mr-2 h-3.5 w-3.5" />
-                Smart emergency landing page
-              </Badge>
               <div className="space-y-4">
                 <h2 className="text-balance font-heading text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl">
-                  Complaints become coordinated volunteer action in moments.
+                  Because every need deserves the right help at the right time.
                 </h2>
                 <p className="max-w-2xl text-base leading-8 text-slate-600 md:text-lg">
                   As soon as someone registers a complaint, HelpingHands structures the issue, highlights urgency, and routes it toward the right nearby volunteers. The homepage keeps both open emergencies and already-helped cases visible so trust grows with every response.

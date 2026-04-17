@@ -154,10 +154,7 @@ export function PredictiveTab() {
     <div className="space-y-8">
       <section className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
         <div className="mesh-card rounded-[2.4rem] border border-white/80 p-8 shadow-[0_20px_60px_rgba(112,147,165,0.12)]">
-          <Badge className="rounded-full bg-white/80 px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-[#2e6c62]">
-            <Brain className="mr-2 h-3.5 w-3.5" />
-            Predictive tags
-          </Badge>
+
           <h2 className="mt-5 font-heading text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl">
             What issues may show up next in your area?
           </h2>

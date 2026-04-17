@@ -505,10 +505,18 @@ export function Chatbot({ externalInput, onExternalInputHandled }: ChatbotProps)
           timestamp: new Date(),
         },
       ]);
-    } catch (e) {
+    } catch (e: any) {
       toast.dismiss(tid);
-      console.error('Submission error:', e);
-      toast.error('Failed to save report to database');
+      const detail = e?.message || e?.status || JSON.stringify(e) || 'Unknown error';
+      console.error('Submission error — full details:', e);
+      // Distinguish AI errors from Firestore errors for clearer user feedback
+      if (detail.includes('quota') || detail.includes('NOT_FOUND') || detail.includes('model') || detail.includes('API')) {
+        toast.error(`AI processing failed: ${detail.slice(0, 120)}`);
+      } else if (detail.includes('permission') || detail.includes('PERMISSION_DENIED')) {
+        toast.error('Permission denied — please make sure you are signed in.');
+      } else {
+        toast.error(`Submission failed: ${detail.slice(0, 120)}`);
+      }
     } finally {
       setIsSubmitting(false);
     }

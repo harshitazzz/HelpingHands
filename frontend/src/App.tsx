@@ -4,11 +4,13 @@ import { PredictiveTab } from './components/PredictiveTab';
 import { UserProfile } from './components/UserProfile';
 import { Dashboard } from './components/Dashboard';
 import { VolunteerInvitations } from './components/VolunteerInvitations';
+import { AuthModal } from './components/AuthModal';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
-import { Brain, HandHelping, LayoutDashboard, LogOut, Mail, MessageSquare, ShieldAlert, User } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
+import { Brain, HandHelping, LayoutDashboard, LogIn, LogOut, Mail, MessageSquare, ShieldAlert, User } from 'lucide-react';
 import { auth, db } from './lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { respondToInvitation } from './lib/matching';
@@ -68,6 +70,8 @@ export default function App() {
   const [isVolunteer, setIsVolunteer] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [focusVolunteerSetup, setFocusVolunteerSetup] = useState(false);
+  const [pendingInvitationCount, setPendingInvitationCount] = useState(0);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (nextUser) => {
@@ -105,6 +109,21 @@ export default function App() {
 
     return () => unsubscribe();
   }, []);
+
+  /* Real-time pending invitation count for the current volunteer */
+  useEffect(() => {
+    if (!user || !isVolunteer) {
+      setPendingInvitationCount(0);
+      return;
+    }
+    const q = query(
+      collection(db, 'invitations'),
+      where('volunteerId', '==', user.uid),
+      where('status', '==', 'pending')
+    );
+    const unsub = onSnapshot(q, (snap) => setPendingInvitationCount(snap.size));
+    return () => unsub();
+  }, [user, isVolunteer]);
 
   useEffect(() => {
     if (!isVolunteer && activeTab === 'invitations') {
@@ -160,13 +179,14 @@ export default function App() {
           <div className="flex flex-wrap gap-2">
             {navItems.map((item) => {
               const Icon = item.icon;
+              const isInvitationsTab = item.key === 'invitations';
               return (
                 <Button
                   key={item.key}
                   type="button"
                   variant="outline"
                   onClick={() => setActiveTab(item.key)}
-                  className={`rounded-full border px-4 ${
+                  className={`relative rounded-full border px-4 ${
                     activeTab === item.key
                       ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
                       : 'border-white/70 bg-white/80 text-slate-700 hover:bg-white'
@@ -174,6 +194,11 @@ export default function App() {
                 >
                   <Icon className="mr-2 h-4 w-4" />
                   {item.label}
+                  {isInvitationsTab && pendingInvitationCount > 0 && (
+                    <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white leading-none">
+                      {pendingInvitationCount > 9 ? '9+' : pendingInvitationCount}
+                    </span>
+                  )}
                 </Button>
               );
             })}
@@ -244,9 +269,14 @@ export default function App() {
                 )}
               </div>
             ) : (
-              <Badge className="rounded-full bg-white/80 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-slate-600">
-                Guest
-              </Badge>
+              <Button
+                type="button"
+                onClick={() => setShowAuthModal(true)}
+                className="h-10 gap-2 rounded-full bg-[#2f6d8e] px-5 text-sm font-bold text-white shadow-md shadow-blue-200/40 transition-all hover:bg-[#285f7a] active:scale-95"
+              >
+                <LogIn className="h-4 w-4" />
+                Sign In
+              </Button>
             )}
           </div>
         </div>
@@ -274,6 +304,10 @@ export default function App() {
       </main>
 
       <Toaster position="top-center" richColors />
+
+      <AnimatePresence>
+        {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+      </AnimatePresence>
     </div>
   );
 }

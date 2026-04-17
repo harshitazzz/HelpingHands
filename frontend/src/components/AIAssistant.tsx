@@ -60,12 +60,11 @@ export function AIAssistant() {
   return (
     <div className="space-y-10">
       <section className="mx-auto max-w-5xl space-y-5 px-1">
-        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#5b89a6]">Request Help</p>
         <h1 className="max-w-3xl font-heading text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl">
           We&apos;re here to understand and route help quickly.
         </h1>
         <p className="max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
-          Describe the emergency in your own words or upload an NGO report. Beacon reads the
+          Describe the emergency in your own words or upload an NGO report. Helping Assistant reads the
           details, extracts the important parts, and sends the request forward for volunteer
           assignment.
         </p>
@@ -78,9 +77,8 @@ export function AIAssistant() {
               <div className="inline-flex rounded-full bg-white/90 p-1 shadow-sm">
                 <button
                   onClick={() => setMode('chat')}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    mode === 'chat' ? 'bg-[#2f6d8e] text-white' : 'text-slate-500 hover:text-slate-900'
-                  }`}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'chat' ? 'bg-[#2f6d8e] text-white' : 'text-slate-500 hover:text-slate-900'
+                    }`}
                 >
                   <span className="inline-flex items-center gap-2">
                     <MessageSquare className="h-4 w-4" />
@@ -89,19 +87,14 @@ export function AIAssistant() {
                 </button>
                 <button
                   onClick={() => setMode('upload')}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    mode === 'upload' ? 'bg-[#2f6d8e] text-white' : 'text-slate-500 hover:text-slate-900'
-                  }`}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'upload' ? 'bg-[#2f6d8e] text-white' : 'text-slate-500 hover:text-slate-900'
+                    }`}
                 >
                   <span className="inline-flex items-center gap-2">
                     <FileUp className="h-4 w-4" />
                     Upload
                   </span>
                 </button>
-              </div>
-
-              <div className="hidden rounded-full bg-[#e5f5ef] px-3 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-[#3f7d6f] sm:block">
-                Beacon intake
               </div>
             </div>
 
@@ -123,7 +116,7 @@ export function AIAssistant() {
                 </div>
                 <h3 className="mt-5 text-2xl font-bold tracking-tight text-slate-900">Upload Documents</h3>
                 <p className="mx-auto mt-3 max-w-sm text-sm leading-7 text-slate-600">
-                  Upload NGO reports in PDF or text format. Beacon will extract the important
+                  Upload NGO reports in PDF or text format. Helping Assistant will extract the important
                   keywords, structure the request, and prepare it for submission.
                 </p>
                 <Button
@@ -146,11 +139,10 @@ export function AIAssistant() {
               <Button
                 variant="outline"
                 size="icon"
-                className={`relative h-20 w-20 rounded-full border-none shadow-lg transition-all ${
-                  isRecording
-                    ? 'bg-rose-100 text-rose-600 ring-4 ring-rose-100'
-                    : 'bg-[#2f6d8e] text-white hover:bg-[#285f7a]'
-                }`}
+                className={`relative h-20 w-20 rounded-full border-none shadow-lg transition-all ${isRecording
+                  ? 'bg-rose-100 text-rose-600 ring-4 ring-rose-100'
+                  : 'bg-[#2f6d8e] text-white hover:bg-[#285f7a]'
+                  }`}
                 onClick={toggleMainMic}
                 title={isRecording ? 'Stop recording' : 'Tap to speak — auto-sends to AI'}
               >
@@ -177,7 +169,7 @@ export function AIAssistant() {
             </div>
             <h3 className="mt-5 text-2xl font-bold tracking-tight text-slate-900">Upload reports</h3>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              NGO teams can upload PDF reports here. Beacon will organize the issue, detect
+              NGO teams can upload PDF reports here. Helping Assistant will organize the issue, detect
               important fields, and push it into the response flow.
             </p>
             <Button
@@ -193,7 +185,7 @@ export function AIAssistant() {
             <div className="mt-5 space-y-4">
               {[
                 'Describe the issue using chat, text, or voice.',
-                'Beacon identifies urgency, location, and support needs.',
+                'Helping Assistant identifies urgency, location, and support needs.',
                 'After submission, the platform auto-assigns volunteers.',
               ].map((item, index) => (
                 <div key={item} className="flex items-start gap-3">
@@ -210,7 +202,7 @@ export function AIAssistant() {
             <div className="flex items-start gap-3">
               <ShieldCheck className="mt-1 h-5 w-5 text-[#4b8f80]" />
               <p className="text-sm italic leading-7 text-slate-600">
-                "You can even upload NGO paperwork or typed field notes. Beacon will pull out the
+                "You can even upload NGO paperwork or typed field notes. Helping Assistant will pull out the
                 key information so the request is easier to understand and act on."
               </p>
             </div>
