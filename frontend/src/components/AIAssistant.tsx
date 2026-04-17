@@ -1,24 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Chatbot } from './Chatbot';
-import { FileUp, MessageSquare, Mic, ShieldCheck, Sparkles, UploadCloud } from 'lucide-react';
+import { FileUp, MessageSquare, Mic, ShieldCheck, Sparkles, Square, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'motion/react';
-import { toast } from 'sonner';
 
 export function AIAssistant() {
   const [mode, setMode] = useState<'chat' | 'upload'>('chat');
   const [isRecording, setIsRecording] = useState(false);
+  const [pendingVoiceInput, setPendingVoiceInput] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
 
-  const handleVoiceRecord = () => {
-    if (!isRecording) {
-      setIsRecording(true);
-      toast.info('Listening... (Speech-to-Text simulation)');
-      setTimeout(() => {
+  useEffect(() => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript: string = event.results[0][0].transcript;
         setIsRecording(false);
-        toast.success('Voice captured! Processing...');
-      }, 3000);
-    } else {
+        // Auto-submit: pass the voice text directly to Chatbot
+        setPendingVoiceInput(transcript);
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsRecording(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsRecording(false);
+      };
+    }
+  }, []);
+
+  const toggleMainMic = () => {
+    if (!recognitionRef.current) {
+      alert('Speech recognition is not supported in your browser. Please use Chrome.');
+      return;
+    }
+
+    if (isRecording) {
+      recognitionRef.current.stop();
       setIsRecording(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsRecording(true);
+      } catch (e) {
+        console.error('Failed to start recognition:', e);
+      }
     }
   };
 
@@ -30,7 +65,9 @@ export function AIAssistant() {
           We&apos;re here to understand and route help quickly.
         </h1>
         <p className="max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
-          Describe the emergency in your own words or upload an NGO report. Beacon reads the details, extracts the important parts, and sends the request forward for volunteer assignment.
+          Describe the emergency in your own words or upload an NGO report. Beacon reads the
+          details, extracts the important parts, and sends the request forward for volunteer
+          assignment.
         </p>
       </section>
 
@@ -70,7 +107,10 @@ export function AIAssistant() {
 
             {mode === 'chat' ? (
               <div className="overflow-hidden rounded-[2rem] bg-white shadow-[0_10px_30px_rgba(140,165,181,0.12)]">
-                <Chatbot />
+                <Chatbot
+                  externalInput={pendingVoiceInput}
+                  onExternalInputHandled={() => setPendingVoiceInput(null)}
+                />
               </div>
             ) : (
               <motion.div
@@ -83,7 +123,8 @@ export function AIAssistant() {
                 </div>
                 <h3 className="mt-5 text-2xl font-bold tracking-tight text-slate-900">Upload Documents</h3>
                 <p className="mx-auto mt-3 max-w-sm text-sm leading-7 text-slate-600">
-                  Upload NGO reports in PDF or text format. Beacon will extract the important keywords, structure the request, and prepare it for submission.
+                  Upload NGO reports in PDF or text format. Beacon will extract the important
+                  keywords, structure the request, and prepare it for submission.
                 </p>
                 <Button
                   onClick={() => setMode('chat')}
@@ -96,22 +137,35 @@ export function AIAssistant() {
             )}
           </div>
 
+          {/* Main Voice Button - auto-submits on capture */}
           <div className="flex flex-col items-center justify-center gap-4 py-4">
-            <Button
-              variant="outline"
-              size="icon"
-              className={`h-20 w-20 rounded-full border-none shadow-lg ${
-                isRecording
-                  ? 'bg-rose-100 text-rose-600 ring-4 ring-rose-50'
-                  : 'bg-[#2f6d8e] text-white hover:bg-[#285f7a]'
-              }`}
-              onClick={handleVoiceRecord}
-            >
-              <Mic className="h-7 w-7" />
-            </Button>
+            <div className="relative">
+              {isRecording && (
+                <span className="absolute inset-0 animate-ping rounded-full bg-rose-400 opacity-30" />
+              )}
+              <Button
+                variant="outline"
+                size="icon"
+                className={`relative h-20 w-20 rounded-full border-none shadow-lg transition-all ${
+                  isRecording
+                    ? 'bg-rose-100 text-rose-600 ring-4 ring-rose-100'
+                    : 'bg-[#2f6d8e] text-white hover:bg-[#285f7a]'
+                }`}
+                onClick={toggleMainMic}
+                title={isRecording ? 'Stop recording' : 'Tap to speak — auto-sends to AI'}
+              >
+                {isRecording ? <Square className="h-7 w-7" /> : <Mic className="h-7 w-7" />}
+              </Button>
+            </div>
             <div className="text-center">
-              <p className="text-2xl font-bold tracking-tight text-[#2f6d8e]">Tap to speak</p>
-              <p className="mt-1 text-sm text-slate-500">Your request can be typed or spoken. We keep the flow simple.</p>
+              <p className="text-2xl font-bold tracking-tight text-[#2f6d8e]">
+                {isRecording ? 'Listening...' : 'Tap to speak'}
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                {isRecording
+                  ? 'Stop speaking and the message will send automatically.'
+                  : 'Your voice is captured and sent directly to the AI.'}
+              </p>
             </div>
           </div>
         </div>
@@ -123,7 +177,8 @@ export function AIAssistant() {
             </div>
             <h3 className="mt-5 text-2xl font-bold tracking-tight text-slate-900">Upload reports</h3>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              NGO teams can upload PDF reports here. Beacon will organize the issue, detect important fields, and push it into the response flow.
+              NGO teams can upload PDF reports here. Beacon will organize the issue, detect
+              important fields, and push it into the response flow.
             </p>
             <Button
               onClick={() => setMode('upload')}
@@ -155,7 +210,8 @@ export function AIAssistant() {
             <div className="flex items-start gap-3">
               <ShieldCheck className="mt-1 h-5 w-5 text-[#4b8f80]" />
               <p className="text-sm italic leading-7 text-slate-600">
-                “You can even upload NGO paperwork or typed field notes. Beacon will pull out the key information so the request is easier to understand and act on.”
+                "You can even upload NGO paperwork or typed field notes. Beacon will pull out the
+                key information so the request is easier to understand and act on."
               </p>
             </div>
           </div>
@@ -166,9 +222,12 @@ export function AIAssistant() {
                 <Sparkles className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">What happens next</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
+                  What happens next
+                </p>
                 <p className="mt-1 text-sm leading-7 text-slate-600">
-                  Once the report is submitted, it appears in the live emergency feed and the matching system starts looking for suitable volunteers.
+                  Once the report is submitted, it appears in the live emergency feed and the
+                  matching system starts looking for suitable volunteers.
                 </p>
               </div>
             </div>

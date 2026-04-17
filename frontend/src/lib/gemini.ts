@@ -2,31 +2,31 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 
 function getGeminiClient() {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
-
   if (!apiKey) {
     throw new Error("Gemini API key is missing. Set VITE_GEMINI_API_KEY in the frontend environment.");
   }
-
   return new GoogleGenAI({ apiKey });
 }
 
-export async function getChatResponse(message: string, history: { role: string, parts: { text: string }[] }[]) {
+export async function getChatResponse(
+  message: string,
+  history: { role: string; parts: { text: string }[] }[]
+) {
   const ai = getGeminiClient();
-  // Ensure history starts with 'user' role and alternates correctly.
-  // Gemini API requires the first message to be from the user.
-  const validHistory = [];
+
+  // Build valid alternating history (must start with 'user', end with 'model')
+  const validHistory: { role: string; parts: { text: string }[] }[] = [];
   let lastRole = "";
-  
   for (const item of history) {
-    const currentRole = item.role === 'model' ? 'model' : 'user';
-    if (validHistory.length === 0 && currentRole === 'model') continue;
-    if (currentRole === lastRole) continue;
-    
-    validHistory.push({
-      role: currentRole,
-      parts: item.parts
-    });
-    lastRole = currentRole;
+    const role = item.role === "model" ? "model" : "user";
+    if (validHistory.length === 0 && role === "model") continue;
+    if (role === lastRole) continue;
+    validHistory.push({ role, parts: item.parts });
+    lastRole = role;
+  }
+  // History must end with 'model'; drop orphaned trailing 'user' (failed previous call)
+  if (validHistory.length > 0 && validHistory[validHistory.length - 1].role === "user") {
+    validHistory.pop();
   }
 
   const chat = ai.chats.create({
@@ -40,19 +40,26 @@ export async function getChatResponse(message: string, history: { role: string, 
       3. How many people are affected?
       4. What type of help is needed?
       
-      Be empathetic and professional. Once you have all the info, summarize it and tell the user you are creating a request.`,
+      Be empathetic and professional. Once you have all the info, summarize it in a strict format as follows:
+      [EMERGENCY_SUMMARY_START]
+      ISSUE: [Brief description]
+      LOCATION: [Specific place]
+      AFFECTED: [Number of people]
+      HELP: [Specific help needed]
+      [EMERGENCY_SUMMARY_END]
+      After the summary, ask the user if they'd like to submit this report.`,
     },
     history: validHistory,
   });
 
-  const response = await chat.sendMessage({ message: message });
+  const response = await chat.sendMessage({ message });
   return response.text;
 }
 
 export async function getStructuredEmergencyData(text: string) {
   const ai = getGeminiClient();
   const response = await ai.models.generateContent({
-    model: "gemini-flash-latest",
+    model: "gemini-1.5-flash",
     contents: `Extract structured emergency data from this text: "${text}"`,
     config: {
       responseMimeType: "application/json",
@@ -65,7 +72,11 @@ export async function getStructuredEmergencyData(text: string) {
           number_of_people_affected: { type: Type.NUMBER },
           volunteers_needed: { type: Type.NUMBER },
           required_skills: { type: Type.ARRAY, items: { type: Type.STRING } },
-          image_keyword: { type: Type.STRING, description: "A single keyword for an image search related to this issue (e.g., 'flood', 'medical', 'fire')" },
+          image_keyword: {
+            type: Type.STRING,
+            description:
+              "A single keyword for an image search related to this issue (e.g., 'flood', 'medical', 'fire')",
+          },
         },
         required: ["issue", "location", "urgency", "image_keyword"],
       },
@@ -77,7 +88,7 @@ export async function getStructuredEmergencyData(text: string) {
 export async function getPredictiveAnalysis(location: string = "Global") {
   const ai = getGeminiClient();
   const response = await ai.models.generateContent({
-    model: "gemini-flash-latest",
+    model: "gemini-1.5-flash",
     contents: `Based on current news, weather patterns, and socio-economic trends for the region: "${location}", predict 3 potential humanitarian needs or risks that might arise in the next 30 days. 
     Consider factors like upcoming weather events, local news reports, and historical data for this area.
     Provide a title, specific location (within or near the region), description, and probability.`,
@@ -104,7 +115,6 @@ export async function getPredictiveAnalysis(location: string = "Global") {
 
 export async function textToSpeech(text: string) {
   if (!text || text.trim().length === 0) return;
-
   try {
     const ai = getGeminiClient();
     const response = await ai.models.generateContent({
@@ -114,42 +124,36 @@ export async function textToSpeech(text: string) {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Kore' },
+            prebuiltVoiceConfig: { voiceName: "Kore" },
           },
         },
       },
     });
 
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    const base64Audio =
+      response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (base64Audio) {
-      // Gemini TTS returns raw PCM audio (16-bit, mono, 24kHz)
       const binaryString = atob(base64Audio);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
-
       const pcmData = new Int16Array(bytes.buffer);
       const float32Data = new Float32Array(pcmData.length);
       for (let i = 0; i < pcmData.length; i++) {
         float32Data[i] = pcmData[i] / 32768.0;
       }
-
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-      }
-
-      const audioBuffer = audioContext.createBuffer(1, float32Data.length, 24000);
+      const audioCtx = new (window.AudioContext ||
+        (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      if (audioCtx.state === "suspended") await audioCtx.resume();
+      const audioBuffer = audioCtx.createBuffer(1, float32Data.length, 24000);
       audioBuffer.getChannelData(0).set(float32Data);
-
-      const source = audioContext.createBufferSource();
+      const source = audioCtx.createBufferSource();
       source.buffer = audioBuffer;
-      source.connect(audioContext.destination);
+      source.connect(audioCtx.destination);
       source.start(0);
     }
   } catch (e) {
-    console.error("Error playing audio:", e);
+    console.error("TTS error:", e);
   }
 }
