@@ -191,7 +191,8 @@ export async function autoAssignVolunteers(requestId: string, requiredSkills: st
 
     // Call the backend API to send real email
     try {
-      await fetch("/api/send-invitation", {
+      const apiUrl = import.meta.env.VITE_API_URL || "";
+      await fetch(`${apiUrl}/api/send-invitation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

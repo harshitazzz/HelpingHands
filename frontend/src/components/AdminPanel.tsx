@@ -151,7 +151,8 @@ export function AdminPanel() {
     const loadingToast = toast.loading(`Sending invitation to ${volunteerEmail}...`);
     
     try {
-      const response = await fetch("/api/send-invitation", {
+      const apiUrl = import.meta.env.VITE_API_URL || "";
+      const response = await fetch(`${apiUrl}/api/send-invitation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
