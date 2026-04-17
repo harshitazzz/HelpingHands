@@ -265,16 +265,16 @@ export function Chatbot() {
 
   return (
     <Card className="w-full mx-auto h-full flex flex-col shadow-none border-none bg-transparent overflow-hidden">
-      <div className="p-6 border-b glass flex flex-row items-center justify-between">
+      <div className="flex flex-row items-center justify-between border-b border-slate-100 bg-[#f8fbfd] p-6">
         <div className="flex items-center gap-4">
-          <div className="bg-primary p-3 rounded-2xl shadow-lg shadow-primary/20">
+          <div className="rounded-2xl bg-[#dff1fb] p-3 text-[#4d84a7]">
             <Bot className="w-6 h-6 text-white" />
           </div>
           <div>
             <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Beacon AI</CardTitle>
-            <p className="text-[10px] uppercase font-black tracking-widest text-primary flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
-              Emergency Assistant
+            <p className="text-[10px] uppercase font-black tracking-widest text-[#4d84a7] flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-[#4d84a7] rounded-full animate-pulse"></span>
+              Emergency assistant
             </p>
           </div>
         </div>
@@ -283,7 +283,7 @@ export function Chatbot() {
             <Button 
               variant="default" 
               size="sm" 
-              className="bg-primary hover:bg-green-600 text-white shadow-xl shadow-primary/20 rounded-xl font-black h-10 px-4 transition-all active:scale-95"
+              className="bg-[#40765e] hover:bg-[#36664f] text-white shadow-xl shadow-emerald-100 rounded-full font-black h-10 px-4 transition-all active:scale-95"
               onClick={handleSubmitReport}
               disabled={isSubmitting}
             >
@@ -294,7 +294,7 @@ export function Chatbot() {
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-xl hover:bg-primary/10 hover:text-primary transition-colors"
+            className="rounded-xl hover:bg-[#e8f3ff] hover:text-[#4d84a7] transition-colors"
             onClick={() => setIsSpeechEnabled(!isSpeechEnabled)}
             title={isSpeechEnabled ? "Disable Voice" : "Enable Voice"}
           >
@@ -303,11 +303,11 @@ export function Chatbot() {
         </div>
       </div>
       
-      <CardContent className="flex-1 overflow-hidden p-0 relative bg-slate-50/30">
+      <CardContent className="flex-1 overflow-hidden p-0 relative bg-[#f7fafc]">
         {!user ? (
-          <div className="absolute inset-0 z-10 bg-white/40 backdrop-blur-md flex flex-col items-center justify-center p-8 text-center space-y-6">
-            <div className="bg-primary/10 p-6 rounded-[2rem] shadow-inner">
-              <LogIn className="w-12 h-12 text-primary" />
+          <div className="absolute inset-0 z-10 bg-white/55 backdrop-blur-md flex flex-col items-center justify-center p-8 text-center space-y-6">
+            <div className="bg-[#e7f4fb] p-6 rounded-[2rem] shadow-inner">
+              <LogIn className="w-12 h-12 text-[#4d84a7]" />
             </div>
             <div className="space-y-3">
               <h3 className="text-2xl font-black text-slate-900 tracking-tight">Access Secure Support</h3>
@@ -331,7 +331,7 @@ export function Chatbot() {
                   }
                 }
               }} 
-              className="gap-3 h-14 px-10 rounded-2xl shadow-xl shadow-primary/20 font-black text-lg transition-all active:scale-95"
+              className="gap-3 h-14 px-10 rounded-full shadow-xl shadow-slate-200 font-black text-lg transition-all active:scale-95 bg-[#2f6d8e] hover:bg-[#285f7a]"
             >
               <LogIn className="w-5 h-5" />
               Sign in with Google
@@ -356,14 +356,14 @@ export function Chatbot() {
                           {user?.displayName?.charAt(0) || 'U'}
                         </AvatarFallback>
                       ) : (
-                        <AvatarFallback className="bg-primary text-white font-black"><Bot className="w-5 h-5" /></AvatarFallback>
+                        <AvatarFallback className="bg-[#dff1fb] text-[#4d84a7] font-black"><Bot className="w-5 h-5" /></AvatarFallback>
                       )}
                     </Avatar>
                     <div className="space-y-1">
                       <div
                         className={`rounded-[1.5rem] px-5 py-3 text-base font-medium shadow-sm transition-all ${
                           m.role === 'user'
-                            ? 'bg-primary text-white rounded-tr-none shadow-primary/10'
+                            ? 'bg-[#a7d5fb] text-[#214863] rounded-tr-none shadow-blue-100'
                             : 'bg-white border text-slate-700 rounded-tl-none border-slate-100 shadow-slate-100/50'
                         }`}
                       >
@@ -384,7 +384,7 @@ export function Chatbot() {
                 className="flex justify-start"
               >
                 <div className="flex gap-4 items-center bg-white rounded-2xl px-5 py-3 border border-slate-100 rounded-tl-none shadow-sm shadow-slate-100/30">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <Loader2 className="w-4 h-4 animate-spin text-[#4d84a7]" />
                   <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Beacon is thinking...</span>
                 </div>
               </motion.div>
@@ -393,12 +393,12 @@ export function Chatbot() {
         </ScrollArea>
       </CardContent>
 
-      <CardFooter className="p-6 border-t glass flex flex-col gap-4">
+      <CardFooter className="flex flex-col gap-4 border-t border-slate-100 bg-white p-6">
         {selectedFile && (
-          <div className="w-full flex items-center justify-between bg-primary/5 p-3 rounded-2xl border border-primary/10 animate-in fade-in slide-in-from-bottom-2">
+          <div className="w-full flex items-center justify-between bg-[#eef7f5] p-3 rounded-2xl border border-[#d7ece6] animate-in fade-in slide-in-from-bottom-2">
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="bg-white p-2 rounded-xl border border-primary/10">
-                <File className="w-4 h-4 text-primary shrink-0" />
+              <div className="bg-white p-2 rounded-xl border border-[#d7ece6]">
+                <File className="w-4 h-4 text-[#40765e] shrink-0" />
               </div>
               <span className="text-sm font-black text-slate-700 truncate">{selectedFile.name}</span>
             </div>
@@ -430,7 +430,7 @@ export function Chatbot() {
             type="button"
             variant="outline"
             size="icon"
-            className="rounded-2xl h-14 w-14 border-slate-200 text-slate-400 hover:text-primary hover:border-primary/30 transition-all active:scale-95"
+            className="rounded-2xl h-14 w-14 border-slate-200 text-slate-400 hover:text-[#4d84a7] hover:border-[#c6dceb] transition-all active:scale-95"
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading || isSubmitting || !user}
             title="Attach Document"
@@ -443,7 +443,7 @@ export function Chatbot() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={isLoading || isSubmitting || !user}
-              className="h-14 px-6 rounded-2xl bg-white border-slate-200 focus-visible:ring-primary font-medium text-slate-700 placeholder:text-slate-300"
+              className="h-14 px-6 rounded-2xl bg-[#f8fbfd] border-slate-200 focus-visible:ring-[#4d84a7] font-medium text-slate-700 placeholder:text-slate-300"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1">
                <Button 
@@ -452,7 +452,7 @@ export function Chatbot() {
                 size="icon"
                 onClick={toggleListening}
                 disabled={isLoading || isSubmitting || !user}
-                className={`rounded-xl h-10 w-10 transition-all ${isListening ? "bg-red-50 text-red-500 animate-pulse" : "text-slate-400 hover:text-primary hover:bg-primary/5"}`}
+                className={`rounded-xl h-10 w-10 transition-all ${isListening ? "bg-red-50 text-red-500 animate-pulse" : "text-slate-400 hover:text-[#4d84a7] hover:bg-[#e8f3ff]"}`}
               >
                 {isListening ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </Button>
@@ -461,7 +461,7 @@ export function Chatbot() {
           <Button 
             type="submit" 
             disabled={isLoading || isSubmitting || (!input.trim() && !selectedFile) || !user} 
-            className="rounded-2xl h-14 w-14 shadow-xl shadow-primary/20 transition-all active:scale-95"
+            className="rounded-2xl h-14 w-14 shadow-xl shadow-slate-200 transition-all active:scale-95 bg-[#2f6d8e] hover:bg-[#285f7a]"
             size="icon"
           >
             <Send className="w-5 h-5" />

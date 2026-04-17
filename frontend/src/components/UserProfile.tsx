@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   User, 
@@ -31,7 +31,13 @@ import { db, auth, updateProfile } from '@/src/lib/firebase';
 import { doc, setDoc, serverTimestamp, getDoc, updateDoc, deleteDoc, writeBatch, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { toast } from 'sonner';
 
-export function UserProfile() {
+export function UserProfile({
+  focusVolunteerSetup = false,
+  onFocusVolunteerSetupHandled,
+}: {
+  focusVolunteerSetup?: boolean;
+  onFocusVolunteerSetupHandled?: () => void;
+}) {
   const [user, setUser] = useState(auth.currentUser);
   const [isVolunteer, setIsVolunteer] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,6 +59,7 @@ export function UserProfile() {
     phone: '',
     availability: 'available' as 'available' | 'busy' | 'offline'
   });
+  const volunteerSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (u) => {
@@ -84,6 +91,13 @@ export function UserProfile() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (focusVolunteerSetup && !isLoading && !isVolunteer) {
+      volunteerSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      onFocusVolunteerSetupHandled?.();
+    }
+  }, [focusVolunteerSetup, isLoading, isVolunteer, onFocusVolunteerSetupHandled]);
 
   const fetchVolunteerStatus = async (uid: string) => {
     setIsLoading(true);
@@ -288,12 +302,12 @@ export function UserProfile() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-12">
+    <div className="max-w-6xl mx-auto space-y-12">
       <div className="flex flex-col lg:flex-row gap-12">
         {/* Left Sidebar: Profile Card */}
-        <div className="lg:w-1/3 xl:w-1/4">
+        <div className="lg:w-[24rem] xl:w-[26rem] shrink-0">
           <Card className="overflow-hidden border-none shadow-2xl rounded-[3rem] bg-white group h-full">
-            <div className="h-40 bg-gradient-to-br from-primary via-primary to-green-400 relative">
+            <div className="h-40 bg-gradient-to-br from-[#79b9de] via-[#67a9d1] to-[#8fd2ea] relative">
               <div className="absolute inset-0 bg-black/10 mix-blend-overlay" />
               <div className="absolute -bottom-16 left-1/2 -translate-x-1/2">
                 <div className="relative">
@@ -303,18 +317,22 @@ export function UserProfile() {
                       {profileData.displayName?.charAt(0) || <User className="w-12 h-12" />}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute bottom-1 right-1 bg-green-500 w-6 h-6 rounded-full border-4 border-white shadow-lg shadow-green-500/20" />
+                  <div className="absolute bottom-1 right-1 bg-[#5fa8d3] w-6 h-6 rounded-full border-4 border-white shadow-lg shadow-sky-200/60" />
                 </div>
               </div>
             </div>
             <CardContent className="pt-20 pb-8 text-center space-y-4">
-              <div className="space-y-1">
+              <div className="space-y-3 px-2">
                 <h3 className="text-2xl font-black tracking-tighter text-slate-900 leading-tight">
                   {profileData.displayName || 'Beacon Rescuer'}
                 </h3>
-                <p className="text-xs font-bold text-slate-400 flex items-center justify-center gap-1.5 uppercase tracking-widest">
-                  <Mail className="w-3 h-3 text-primary" /> {profileData.email}
-                </p>
+                <div className="rounded-[1.4rem] bg-slate-50/80 px-4 py-3 border border-slate-100">
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400 mb-2">Email address</p>
+                  <p className="text-[11px] font-bold text-slate-500 break-all leading-5 flex items-start justify-center gap-2 normal-case tracking-normal">
+                    <Mail className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+                    <span>{profileData.email}</span>
+                  </p>
+                </div>
               </div>
               
               <div className="pt-4 flex flex-wrap justify-center gap-2">
@@ -425,7 +443,7 @@ export function UserProfile() {
     return (
       <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Basic Info */}
-        <div className="space-y-6">
+        <div ref={volunteerSectionRef} className="space-y-6">
           <div className="flex items-center gap-4 ml-2">
             <div className="bg-primary/10 p-2.5 rounded-xl">
               <User className="w-5 h-5 text-primary" />
@@ -491,7 +509,7 @@ export function UserProfile() {
           <Card className={`rounded-[2.5rem] overflow-hidden border-none shadow-2xl transition-all duration-700 ${isVolunteer ? 'bg-white' : 'bg-[#DBEAFE]/30 ring-4 ring-[#DBEAFE]/20 ring-inset'}`}>
             {!isVolunteer && (
               <div className="p-10 pb-0 flex flex-col items-center text-center space-y-4">
-                 <div className="bg-primary p-4 rounded-3xl shadow-xl shadow-primary/20 -rotate-2">
+                 <div className="bg-[#5fa8d3] p-4 rounded-3xl shadow-xl shadow-sky-200/60 -rotate-2">
                    <Heart className="w-8 h-8 text-white fill-white" />
                  </div>
                  <div className="space-y-2">
@@ -521,7 +539,8 @@ export function UserProfile() {
                       value={volunteerData.phone}
                       onChange={e => setVolunteerData(prev => ({ ...prev, phone: e.target.value }))}
                       className="h-14 pl-14 rounded-2xl bg-slate-50 border-none focus-visible:ring-primary font-bold text-slate-900"
-                      placeholder="Volunteers only"
+                      placeholder="Required mobile number"
+                      required={!isVolunteer}
                     />
                   </div>
                 </div>
@@ -562,7 +581,7 @@ export function UserProfile() {
                       }`}
                     >
                       <div className={`w-2 h-2 rounded-full ${
-                        status === 'available' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' :
+                        status === 'available' ? 'bg-[#5fa8d3] shadow-[0_0_8px_rgba(95,168,211,0.6)]' :
                         status === 'busy' ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]' :
                         'bg-slate-300'
                       }`} />
@@ -614,8 +633,8 @@ export function UserProfile() {
               )}
               <Button 
                 onClick={handleUpdateVolunteer} 
-                disabled={isSubmitting || showConfirmStop} 
-                className={`order-1 md:order-2 h-16 px-12 rounded-[1.5rem] font-black text-lg transition-all active:scale-95 shadow-2xl shadow-primary/20 ${isVolunteer ? 'w-full md:w-auto bg-slate-900 border-none hover:bg-slate-800' : 'w-full bg-primary hover:bg-green-600'}`}
+                disabled={isSubmitting || showConfirmStop || (!isVolunteer && !volunteerData.phone.trim())} 
+                className={`order-1 md:order-2 h-16 px-12 rounded-[1.5rem] font-black text-lg transition-all active:scale-95 shadow-2xl shadow-sky-200/50 ${isVolunteer ? 'w-full md:w-auto bg-slate-900 border-none hover:bg-slate-800' : 'w-full bg-[#5fa8d3] hover:bg-[#4d96c2]'}`}
               >
                 {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin mr-3" /> : <CheckCircle2 className="w-6 h-6 mr-3" />}
                 {isVolunteer ? 'Update Credentials' : 'Commit to Excellence'}

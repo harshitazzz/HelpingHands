@@ -1,8 +1,17 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+function getGeminiClient() {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+
+  if (!apiKey) {
+    throw new Error("Gemini API key is missing. Set VITE_GEMINI_API_KEY in the frontend environment.");
+  }
+
+  return new GoogleGenAI({ apiKey });
+}
 
 export async function getChatResponse(message: string, history: { role: string, parts: { text: string }[] }[]) {
+  const ai = getGeminiClient();
   // Ensure history starts with 'user' role and alternates correctly.
   // Gemini API requires the first message to be from the user.
   const validHistory = [];
@@ -41,6 +50,7 @@ export async function getChatResponse(message: string, history: { role: string, 
 }
 
 export async function getStructuredEmergencyData(text: string) {
+  const ai = getGeminiClient();
   const response = await ai.models.generateContent({
     model: "gemini-flash-latest",
     contents: `Extract structured emergency data from this text: "${text}"`,
@@ -65,6 +75,7 @@ export async function getStructuredEmergencyData(text: string) {
 }
 
 export async function getPredictiveAnalysis(location: string = "Global") {
+  const ai = getGeminiClient();
   const response = await ai.models.generateContent({
     model: "gemini-flash-latest",
     contents: `Based on current news, weather patterns, and socio-economic trends for the region: "${location}", predict 3 potential humanitarian needs or risks that might arise in the next 30 days. 
@@ -95,6 +106,7 @@ export async function textToSpeech(text: string) {
   if (!text || text.trim().length === 0) return;
 
   try {
+    const ai = getGeminiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text }] }],

@@ -1,11 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Chatbot } from './Chatbot';
-import { ReportUpload } from './ReportUpload';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare, FileUp, Mic, Send, Paperclip, Sparkles, Volume2 } from 'lucide-react';
+import { FileUp, MessageSquare, Mic, ShieldCheck, Sparkles, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { toast } from 'sonner';
 
 export function AIAssistant() {
@@ -15,10 +12,10 @@ export function AIAssistant() {
   const handleVoiceRecord = () => {
     if (!isRecording) {
       setIsRecording(true);
-      toast.info("Listening... (Speech-to-Text Simulation)");
+      toast.info('Listening... (Speech-to-Text simulation)');
       setTimeout(() => {
         setIsRecording(false);
-        toast.success("Voice captured! Processing...");
+        toast.success('Voice captured! Processing...');
       }, 3000);
     } else {
       setIsRecording(false);
@@ -26,115 +23,158 @@ export function AIAssistant() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div className="relative overflow-hidden group">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#DBEAFE]/30 via-[#DCFCE7]/30 to-[#FEF9C3]/30 blur-3xl -z-10 opacity-50 transition-opacity group-hover:opacity-100" />
-        <div className="glass p-10 rounded-[2.5rem] border-white/50 shadow-2xl shadow-slate-200/50">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-            <div className="flex items-center gap-6">
-              <div className="bg-primary p-4 rounded-[1.5rem] shadow-xl shadow-primary/20 rotate-3 group-hover:rotate-0 transition-transform">
-                <Sparkles className="w-8 h-8 text-white" />
+    <div className="space-y-10">
+      <section className="mx-auto max-w-5xl space-y-5 px-1">
+        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#5b89a6]">Request Help</p>
+        <h1 className="max-w-3xl font-heading text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl">
+          We&apos;re here to understand and route help quickly.
+        </h1>
+        <p className="max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
+          Describe the emergency in your own words or upload an NGO report. Beacon reads the details, extracts the important parts, and sends the request forward for volunteer assignment.
+        </p>
+      </section>
+
+      <section className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1.25fr_0.85fr]">
+        <div className="space-y-6">
+          <div className="rounded-[2.4rem] bg-[#f3f8fb] p-5 shadow-[0_18px_45px_rgba(131,160,180,0.12)]">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="inline-flex rounded-full bg-white/90 p-1 shadow-sm">
+                <button
+                  onClick={() => setMode('chat')}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    mode === 'chat' ? 'bg-[#2f6d8e] text-white' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    Chat
+                  </span>
+                </button>
+                <button
+                  onClick={() => setMode('upload')}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    mode === 'upload' ? 'bg-[#2f6d8e] text-white' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <FileUp className="h-4 w-4" />
+                    Upload
+                  </span>
+                </button>
               </div>
-              <div>
-                <h2 className="text-4xl font-black tracking-tighter text-slate-900 leading-none mb-2">Helping Hands AI</h2>
-                <p className="text-slate-500 font-medium text-lg leading-tight">Intelligent coordination for every emergency.</p>
+
+              <div className="hidden rounded-full bg-[#e5f5ef] px-3 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-[#3f7d6f] sm:block">
+                Beacon intake
               </div>
             </div>
 
-            <div className="flex gap-2 bg-slate-100/50 p-1.5 rounded-2xl w-fit border border-slate-200/50 backdrop-blur-sm">
-              <button
-                onClick={() => setMode('chat')}
-                className={`px-8 py-3 rounded-xl text-sm font-black transition-all ${mode === 'chat' ? 'bg-white shadow-lg text-primary scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+            {mode === 'chat' ? (
+              <div className="overflow-hidden rounded-[2rem] bg-white shadow-[0_10px_30px_rgba(140,165,181,0.12)]">
+                <Chatbot />
+              </div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-[2rem] border border-dashed border-[#b8dfd2] bg-[#eefaf4] p-8 text-center"
               >
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />
-                  Chat
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#d9f3e8] text-[#4a977d]">
+                  <UploadCloud className="h-8 w-8" />
                 </div>
-              </button>
-              <button
-                onClick={() => setMode('upload')}
-                className={`px-8 py-3 rounded-xl text-sm font-black transition-all ${mode === 'upload' ? 'bg-white shadow-lg text-primary scale-105' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <FileUp className="w-4 h-4" />
-                  Report
-                </div>
-              </button>
+                <h3 className="mt-5 text-2xl font-bold tracking-tight text-slate-900">Upload Documents</h3>
+                <p className="mx-auto mt-3 max-w-sm text-sm leading-7 text-slate-600">
+                  Upload NGO reports in PDF or text format. Beacon will extract the important keywords, structure the request, and prepare it for submission.
+                </p>
+                <Button
+                  onClick={() => setMode('chat')}
+                  variant="outline"
+                  className="mt-6 rounded-full border-[#b8dfd2] bg-white px-6 text-slate-800 hover:bg-slate-50"
+                >
+                  Switch back to chat
+                </Button>
+              </motion.div>
+            )}
+          </div>
+
+          <div className="flex flex-col items-center justify-center gap-4 py-4">
+            <Button
+              variant="outline"
+              size="icon"
+              className={`h-20 w-20 rounded-full border-none shadow-lg ${
+                isRecording
+                  ? 'bg-rose-100 text-rose-600 ring-4 ring-rose-50'
+                  : 'bg-[#2f6d8e] text-white hover:bg-[#285f7a]'
+              }`}
+              onClick={handleVoiceRecord}
+            >
+              <Mic className="h-7 w-7" />
+            </Button>
+            <div className="text-center">
+              <p className="text-2xl font-bold tracking-tight text-[#2f6d8e]">Tap to speak</p>
+              <p className="mt-1 text-sm text-slate-500">Your request can be typed or spoken. We keep the flow simple.</p>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="relative">
-        <AnimatePresence mode="wait">
-          {mode === 'chat' ? (
-            <motion.div
-              key="chat"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.5 }}
-              className="bg-white rounded-[3rem] shadow-2xl border border-slate-100 overflow-hidden min-h-[650px] flex flex-col group"
+        <div className="space-y-6">
+          <div className="rounded-[2.2rem] border border-dashed border-[#b8dfd2] bg-[#eefaf4] p-8 text-center shadow-[0_10px_30px_rgba(153,194,175,0.10)]">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#d6f2e5] text-[#4d957c]">
+              <FileUp className="h-6 w-6" />
+            </div>
+            <h3 className="mt-5 text-2xl font-bold tracking-tight text-slate-900">Upload reports</h3>
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              NGO teams can upload PDF reports here. Beacon will organize the issue, detect important fields, and push it into the response flow.
+            </p>
+            <Button
+              onClick={() => setMode('upload')}
+              className="mt-6 rounded-full bg-[#40765e] px-7 text-white hover:bg-[#36664f]"
             >
-              <div className="flex-1 overflow-hidden">
-                <Chatbot />
-              </div>
-              
-              {/* Voice & Quick Actions Bar */}
-              <div className="p-6 bg-slate-50/80 backdrop-blur-md border-t border-slate-100 flex items-center gap-4">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className={`rounded-2xl h-16 w-16 transition-all shadow-lg active:scale-90 ${isRecording ? 'bg-red-50 text-red-600 border-red-200 animate-pulse ring-4 ring-red-50' : 'bg-white hover:bg-primary/10 hover:text-primary hover:border-primary/30 border-slate-200'}`}
-                  onClick={handleVoiceRecord}
-                >
-                  <Mic className="w-6 h-6" />
-                </Button>
-                <div className="flex-1">
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">
-                    {isRecording ? "Listening closely..." : "Voice Input"}
-                  </p>
-                  <p className="text-sm font-medium text-slate-500">
-                    {isRecording ? "I'm capturing your request..." : "Tap the microphone to speak your emergency report"}
-                  </p>
+              Open upload flow
+            </Button>
+          </div>
+
+          <div className="rounded-[2.2rem] bg-white p-7 shadow-[0_10px_30px_rgba(140,165,181,0.10)]">
+            <h3 className="text-2xl font-bold tracking-tight text-slate-900">How it works</h3>
+            <div className="mt-5 space-y-4">
+              {[
+                'Describe the issue using chat, text, or voice.',
+                'Beacon identifies urgency, location, and support needs.',
+                'After submission, the platform auto-assigns volunteers.',
+              ].map((item, index) => (
+                <div key={item} className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#dff1fb] text-xs font-black text-[#4d84a7]">
+                    {index + 1}
+                  </div>
+                  <p className="text-sm leading-7 text-slate-600">{item}</p>
                 </div>
-                <Button
-                  variant="ghost"
-                  className="rounded-xl h-12 px-6 font-black text-slate-400 hover:text-primary hover:bg-primary/5 transition-all"
-                  onClick={() => setMode('upload')}
-                >
-                  <Paperclip className="w-4 h-4 mr-2" />
-                  Attach Report
-                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[2rem] bg-[#e8f7f5] px-6 py-5">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-1 h-5 w-5 text-[#4b8f80]" />
+              <p className="text-sm italic leading-7 text-slate-600">
+                “You can even upload NGO paperwork or typed field notes. Beacon will pull out the key information so the request is easier to understand and act on.”
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-[2rem] bg-white/80 p-6 shadow-[0_10px_24px_rgba(140,165,181,0.08)]">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e8f3ff] text-[#4d84a7]">
+                <Sparkles className="h-5 w-5" />
               </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="upload"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.5 }}
-              className="bg-white rounded-[3rem] shadow-2xl border border-slate-100 p-12"
-            >
-              <ReportUpload />
-              <div className="mt-12 pt-12 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-4 text-slate-400 bg-slate-50 px-6 py-3 rounded-2xl border border-slate-100">
-                  <Volume2 className="w-6 h-6 text-primary" />
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Prefer talking? <span className="text-primary cursor-pointer hover:underline" onClick={() => setMode('chat')}>Switch to Chat</span></p>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  className="rounded-2xl h-14 px-10 font-black text-slate-900 hover:bg-slate-50 transition-all border border-slate-100" 
-                  onClick={() => setMode('chat')}
-                >
-                  Back to Assistant
-                </Button>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">What happens next</p>
+                <p className="mt-1 text-sm leading-7 text-slate-600">
+                  Once the report is submitted, it appears in the live emergency feed and the matching system starts looking for suitable volunteers.
+                </p>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

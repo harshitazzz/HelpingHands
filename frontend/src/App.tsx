@@ -1,58 +1,85 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useEffect, useState } from 'react';
 import { AIAssistant } from './components/AIAssistant';
 import { PredictiveTab } from './components/PredictiveTab';
 import { UserProfile } from './components/UserProfile';
-import { AdminPanel } from './components/AdminPanel';
-import { respondToInvitation } from './lib/matching';
 import { Dashboard } from './components/Dashboard';
-import { SplashScreen } from './components/SplashScreen';
+import { VolunteerInvitations } from './components/VolunteerInvitations';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, Shield, Users, AlertTriangle, MessageSquare, FileUp, UserPlus, LayoutDashboard, LogOut, MailCheck, ShieldAlert, Trash2, Brain, HandHelping, Sparkles, MapPin } from 'lucide-react';
-import {
-  auth,
-  db,
-  signInWithGoogle,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  updateProfile
-} from './lib/firebase';
-import { doc, deleteDoc, collection, query, where, getDocs, writeBatch, getDoc, setDoc } from 'firebase/firestore';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Brain, HandHelping, LayoutDashboard, LogOut, Mail, MessageSquare, ShieldAlert, User } from 'lucide-react';
+import { auth, db } from './lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { X, User, Lock, Mail, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { respondToInvitation } from './lib/matching';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
+type TabKey = 'dashboard' | 'assistant' | 'predictive' | 'profile' | 'invitations';
+
+const baseNavItems: { key: Exclude<TabKey, 'invitations'>; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: 'dashboard', label: 'Home', icon: LayoutDashboard },
+  { key: 'assistant', label: 'Raise Request', icon: MessageSquare },
+  { key: 'predictive', label: 'Predictive', icon: Brain },
+  { key: 'profile', label: 'Profile', icon: User },
+];
+
+class ScreenErrorBoundary extends React.Component<
+  { children: React.ReactNode; onReset: () => void },
+  { hasError: boolean; message: string }
+> {
+  constructor(props: { children: React.ReactNode; onReset: () => void }) {
+    super(props);
+    this.state = { hasError: false, message: '' };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, message: error?.message || 'Something went wrong while rendering this screen.' };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('Screen render error:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-[2rem] border border-[#d9e8ef] bg-white/90 p-8 shadow-sm">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-rose-500">Render issue detected</p>
+          <h2 className="mt-3 font-heading text-3xl font-extrabold tracking-tight text-slate-900">This screen failed to load</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+            The app shell is live, but the selected page crashed while rendering. Go back to Home and I&apos;ll keep isolating the problem.
+          </p>
+          <p className="mt-4 rounded-2xl bg-[#f8fbfd] px-4 py-3 font-mono text-xs text-slate-500">{this.state.message}</p>
+          <Button className="mt-6 rounded-full bg-slate-900 text-white hover:bg-slate-800" onClick={this.props.onReset}>
+            Back to Home
+          </Button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [user, setUser] = useState(auth.currentUser);
   const [isVolunteer, setIsVolunteer] = useState(false);
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showVolunteerModal, setShowVolunteerModal] = useState(false);
-  const [volunteerData, setVolunteerData] = useState({ skills: '', location: '' });
-  const [loginMode, setLoginMode] = useState<'login' | 'signup' | 'admin'>('login');
-  const [authCreds, setAuthCreds] = useState({ email: '', password: '', username: '' });
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [showSplash, setShowSplash] = useState(true);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [focusVolunteerSetup, setFocusVolunteerSetup] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (u) => {
-      setUser(u);
-      if (u) {
-        // Check volunteer status
-        const vDoc = await getDoc(doc(db, 'volunteers', u.uid));
-        setIsVolunteer(vDoc.exists());
+    const unsubscribe = auth.onAuthStateChanged(async (nextUser) => {
+      setUser(nextUser);
+      if (nextUser) {
+        const volunteerDoc = await getDoc(doc(db, 'volunteers', nextUser.uid));
+        setIsVolunteer(volunteerDoc.exists());
       } else {
         setIsVolunteer(false);
       }
     });
 
-    // Handle deep links for invitation responses (simulating Gmail links)
     const urlParams = new URLSearchParams(window.location.search);
     const acceptId = urlParams.get('accept');
     const rejectId = urlParams.get('reject');
@@ -61,539 +88,192 @@ export default function App() {
       const handleDeepLink = async () => {
         const invitationId = acceptId || rejectId;
         const status = acceptId ? 'accepted' : 'rejected';
-
         if (!invitationId) return;
 
         try {
           await respondToInvitation(invitationId, status);
-          toast.success(status === 'accepted' ? "Mission accepted via link!" : "Mission declined via link.");
-          // Clear URL params
+          toast.success(status === 'accepted' ? 'Mission accepted via link!' : 'Mission declined via link.');
           window.history.replaceState({}, document.title, window.location.pathname);
         } catch (error) {
-          console.error("Deep link error:", error);
-          toast.error("Failed to process invitation link");
+          console.error('Deep link error:', error);
+          toast.error('Failed to process invitation link');
         }
       };
+
       handleDeepLink();
     }
 
     return () => unsubscribe();
   }, []);
 
-  const handleBecomeVolunteer = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!user) {
-      setShowLoginModal(true);
-      return;
+  useEffect(() => {
+    if (!isVolunteer && activeTab === 'invitations') {
+      setActiveTab('dashboard');
     }
+  }, [isVolunteer, activeTab]);
 
-    if (!showVolunteerModal) {
-      setShowVolunteerModal(true);
-      return;
-    }
-
+  const handleLogout = async () => {
     try {
-      const skillsArray = volunteerData.skills.split(',').map(s => s.trim()).filter(s => s !== '');
-      await setDoc(doc(db, 'volunteers', user.uid), {
-        uid: user.uid,
-        name: user.displayName || 'Volunteer',
-        email: user.email,
-        availability: 'available',
-        skills: skillsArray.length > 0 ? skillsArray : ['General Support'],
-        location: volunteerData.location || 'Global',
-        createdAt: new Date()
-      });
-      setIsVolunteer(true);
-      setShowVolunteerModal(false);
-      toast.success("Welcome to the team! You are now a volunteer.");
+      await auth.signOut();
+      setShowProfileMenu(false);
+      toast.success('Signed out successfully');
     } catch (error) {
-      toast.error("Failed to register as volunteer");
+      console.error('Logout error:', error);
+      toast.error('Failed to sign out');
     }
   };
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (loginMode === 'admin') {
-        if (authCreds.email === 'admin@gmail.com' && authCreds.password === 'admin123') {
-          setIsAdminAuthenticated(true);
-          setShowLoginModal(false);
-          toast.success('Admin Dashboard Unlocked');
-        } else {
-          toast.error('Invalid admin credentials');
-        }
-        return;
-      }
-
-      if (loginMode === 'signup') {
-        if (authCreds.password.length < 6) {
-          toast.error('Password must be at least 6 characters long');
-          return;
-        }
-        const userCredential = await createUserWithEmailAndPassword(auth, authCreds.email, authCreds.password);
-        await updateProfile(userCredential.user, {
-          displayName: authCreds.username
-        });
-        toast.success('Account created successfully!');
-      } else {
-        await signInWithEmailAndPassword(auth, authCreds.email, authCreds.password);
-        toast.success('Signed in successfully!');
-      }
-      setShowLoginModal(false);
-      setAuthCreds({ email: '', password: '', username: '' });
-    } catch (error: any) {
-      console.error('Auth error:', error);
-      const errorCode = error.code || '';
-      const errorMessage = error.message || '';
-
-      if (errorCode === 'auth/operation-not-allowed') {
-        toast.error('Email/Password sign-in is not enabled in Firebase. Please contact the administrator.');
-      } else if (errorCode === 'auth/weak-password') {
-        toast.error('Password is too weak. Please use at least 6 characters.');
-      } else if (errorCode === 'auth/email-already-in-use') {
-        toast.error('This email is already registered. Please try logging in instead.');
-      } else if (errorCode === 'auth/invalid-email') {
-        toast.error('Please enter a valid email address.');
-      } else if (
-        errorCode === 'auth/invalid-credential' ||
-        errorCode === 'auth/user-not-found' ||
-        errorCode === 'auth/wrong-password' ||
-        errorMessage.toLowerCase().includes('invalid-credential')
-      ) {
-        toast.error('Invalid email or password. Please check your credentials and try again.');
-      } else {
-        toast.error(errorMessage || 'Authentication failed');
-      }
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      await signInWithGoogle();
-      setShowLoginModal(false);
-      toast.success('Signed in successfully');
-    } catch (error: any) {
-      console.error('Login error full details:', error);
-      const errorCode = error.code || 'unknown';
-      const errorMessage = error.message || 'No specific error message available';
-
-      if (errorCode === 'auth/popup-closed-by-user') {
-        toast.info('Sign in cancelled: You closed the login popup.');
-      } else if (errorCode === 'auth/operation-not-allowed') {
-        toast.error('Google sign-in is not enabled in Firebase. Please enable it in the Firebase Console under Authentication > Sign-in method.');
-      } else if (errorCode === 'auth/unauthorized-domain') {
-        toast.error(`This domain is not authorized for Google Sign-in. Please add '${window.location.hostname}' to the Authorized Domains list in the Firebase Console.`);
-      } else if (errorMessage.toLowerCase().includes('invalid-credential')) {
-        toast.error('Authentication failed: Invalid credentials or account issue.');
-      } else {
-        toast.error(`Sign-in failed (${errorCode}): ${errorMessage}`);
-      }
-    }
-  };
-
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-
-  const handleLogout = () => {
-    auth.signOut();
-    toast.success('Signed out successfully');
+  const openVolunteerSetup = () => {
+    setActiveTab('profile');
+    setFocusVolunteerSetup(true);
     setShowProfileMenu(false);
   };
 
-  return (
-    <div className="min-h-screen font-sans text-slate-900 selection:bg-primary/20 transition-all duration-500 bg-[#FEF9C3] bg-gradient-to-br from-[#FEF9C3] via-[#FEF9C3] to-[#DCFCE7]">
-      <AnimatePresence>
-        {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
-      </AnimatePresence>
+  const navItems = isVolunteer
+    ? [...baseNavItems, { key: 'invitations' as const, label: 'Invitations', icon: Mail }]
+    : baseNavItems;
 
-      {/* Simplified Navigation */}
-      <nav className="sticky top-0 z-50 w-full glass-border transition-all duration-300">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          {/* Logo - Left */}
-          <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-            <div className="bg-primary/10 p-2 rounded-xl group-hover:bg-primary/20 transition-colors">
-              <HandHelping className="w-6 h-6 text-primary" />
+  return (
+    <div className="min-h-screen text-slate-900">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute left-[-8rem] top-[-5rem] h-[24rem] w-[24rem] rounded-full bg-[#d9f1e9] blur-3xl opacity-80" />
+        <div className="absolute right-[-8rem] top-24 h-[30rem] w-[30rem] rounded-full bg-[#d7ecfb] blur-3xl opacity-90" />
+        <div className="absolute bottom-[-10rem] left-1/3 h-[26rem] w-[26rem] rounded-full bg-[#edf9f2] blur-3xl opacity-90" />
+      </div>
+
+      <header className="relative z-20 border-b border-white/50 bg-white/70 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+          <button
+            type="button"
+            onClick={() => setActiveTab('dashboard')}
+            className="flex items-center gap-3 self-start rounded-full border border-white/70 bg-white/80 px-3 py-2 shadow-sm"
+          >
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#8bd4c2] to-[#6eaed0] text-white">
+              <HandHelping className="h-5 w-5" />
             </div>
-            <h1 className="text-xl font-black tracking-tighter text-slate-900 leading-none">
-              Helping<span className="text-primary italic">Hands</span>
-            </h1>
+            <div className="text-left">
+              <p className="font-heading text-lg font-extrabold tracking-tight text-slate-900">HelpingHands</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500">Relief network</p>
+            </div>
+          </button>
+
+          <div className="flex flex-wrap gap-2">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Button
+                  key={item.key}
+                  type="button"
+                  variant="outline"
+                  onClick={() => setActiveTab(item.key)}
+                  className={`rounded-full border px-4 ${
+                    activeTab === item.key
+                      ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
+                      : 'border-white/70 bg-white/80 text-slate-700 hover:bg-white'
+                  }`}
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  {item.label}
+                </Button>
+              );
+            })}
           </div>
 
-          {/* User Profile - Right */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             {isAdminAuthenticated && (
-              <Badge className="bg-green-100 text-green-700 border-green-200 py-1 px-3 rounded-full text-[10px] font-black uppercase tracking-widest hidden md:flex items-center gap-1">
-                <ShieldAlert className="w-3 h-3" />
-                Admin Mode
+              <Badge className="rounded-full border border-[#cbe7df] bg-[#e9faf4] px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-[#216255]">
+                <ShieldAlert className="mr-1.5 h-3.5 w-3.5" />
+                Admin
               </Badge>
             )}
-
+            {user && !isVolunteer && (
+              <Button
+                type="button"
+                onClick={openVolunteerSetup}
+                className="rounded-full bg-[#40765e] px-4 text-white hover:bg-[#36664f]"
+              >
+                Become a Volunteer
+              </Button>
+            )}
             {user ? (
               <div className="relative">
-                <div 
-                  className="flex items-center gap-3 cursor-pointer p-1 pr-3 rounded-full hover:bg-slate-900/5 transition-all"
-                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                <button
+                  type="button"
+                  onClick={() => setShowProfileMenu((prev) => !prev)}
+                  className="flex items-center gap-3 rounded-full border border-white/70 bg-white/85 px-2 py-1.5 shadow-sm transition hover:bg-white"
                 >
-                  <Avatar className="w-8 h-8 border-2 border-primary/20 shadow-sm">
+                  <Avatar className="h-10 w-10 border border-[#d9e8ef]">
                     <AvatarImage src={user.photoURL || undefined} />
-                    <AvatarFallback className="bg-primary/10 text-primary font-black text-xs">
-                      {user.displayName?.charAt(0) || 'U'}
+                    <AvatarFallback className="bg-[#e8f3ff] font-bold text-[#4d84a7]">
+                      {user.displayName?.charAt(0) || user.email?.charAt(0)?.toUpperCase() || 'U'}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="hidden sm:block">
-                    <p className="text-sm font-black text-slate-900">Hi, {user.displayName?.split(' ')[0] || 'User'}</p>
+                  <div className="hidden text-left sm:block">
+                    <p className="text-sm font-bold text-slate-900">
+                      Hi, {user.displayName?.split(' ')[0] || user.email?.split('@')[0] || 'User'}
+                    </p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
+                      {isVolunteer ? 'Volunteer' : 'Signed in'}
+                    </p>
                   </div>
-                </div>
+                </button>
 
-                <AnimatePresence>
-                  {showProfileMenu && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 z-[60]"
+                {showProfileMenu && (
+                  <div className="absolute right-0 top-[calc(100%+0.6rem)] z-30 w-44 rounded-[1.4rem] border border-white/80 bg-white/95 p-2 shadow-xl backdrop-blur-xl">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('profile');
+                        setFocusVolunteerSetup(false);
+                        setShowProfileMenu(false);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-700 transition hover:bg-[#f4f9fb]"
                     >
-                      <button 
-                        onClick={() => { setActiveTab('profile'); setShowProfileMenu(false); }}
-                        className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary rounded-xl transition-all flex items-center gap-2"
-                      >
-                        <User className="w-4 h-4" />
-                        Check Profile
-                      </button>
-                      <div className="h-px bg-slate-50 my-1" />
-                      <button 
-                        onClick={handleLogout}
-                        className="w-full text-left px-4 py-3 text-sm font-bold text-red-400 hover:bg-red-50 rounded-xl transition-all flex items-center gap-2"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Logout
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      <User className="h-4 w-4" />
+                      Profile
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-rose-500 transition hover:bg-rose-50"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Logout
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
-              <Button onClick={() => setShowLoginModal(true)} className="rounded-2xl h-10 px-6 font-black bg-slate-900 text-white shadow-lg shadow-slate-900/20 active:scale-95 transition-all">
-                Sign In
-              </Button>
+              <Badge className="rounded-full bg-white/80 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-slate-600">
+                Guest
+              </Badge>
             )}
           </div>
         </div>
-      </nav>
+      </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-12">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-primary">
-                <Sparkles className="w-5 h-5" />
-                <span className="text-xs font-black uppercase tracking-widest">AI-Powered Coordination</span>
-              </div>
-              <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900">
-                {activeTab === 'dashboard' ? 'Community Dashboard' :
-                  activeTab === 'assistant' ? 'AI Assistant' :
-                    activeTab === 'predictive' ? 'Future Insights' : 'My Profile'}
-              </h1>
-            </div>
-            <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full lg:w-auto h-auto p-1.5 bg-slate-100/50 backdrop-blur-sm rounded-[1.5rem] border border-slate-200/50">
-              <TabsTrigger value="dashboard" className="flex items-center gap-2 py-3 rounded-2xl data-[state=active]:shadow-lg data-[state=active]:bg-white">
-                <LayoutDashboard className="w-4 h-4" />
-                <span className="font-bold">Dashboard</span>
-              </TabsTrigger>
-              <TabsTrigger value="assistant" className="flex items-center gap-2 py-3 rounded-2xl data-[state=active]:shadow-md">
-                <MessageSquare className="w-4 h-4" />
-                <span className="font-bold">AI Assistant</span>
-              </TabsTrigger>
-              <TabsTrigger value="predictive" className="flex items-center gap-2 py-3 rounded-2xl data-[state=active]:shadow-md">
-                <Brain className="w-4 h-4" />
-                <span className="font-bold">Predictive</span>
-              </TabsTrigger>
-              <TabsTrigger value="profile" className="flex items-center gap-2 py-3 rounded-2xl data-[state=active]:shadow-md">
-                <User className="w-4 h-4" />
-                <span className="font-bold">Profile</span>
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <div className="grid lg:grid-cols-12 gap-12">
-            {/* Main Content Area */}
-            <div className="lg:col-span-8">
-              <TabsContent value="dashboard" className="mt-0 focus-visible:ring-0">
-                <Dashboard isAdmin={isAdminAuthenticated} onNavigate={(tab) => setActiveTab(tab)} />
-              </TabsContent>
-              <TabsContent value="assistant" className="mt-0 focus-visible:ring-0">
-                <AIAssistant />
-              </TabsContent>
-              <TabsContent value="predictive" className="mt-0 focus-visible:ring-0">
-                <PredictiveTab />
-              </TabsContent>
-              <TabsContent value="profile" className="mt-0 focus-visible:ring-0">
-                <UserProfile />
-              </TabsContent>
-            </div>
-
-            {/* Sidebar Stats / Info */}
-            <div className="lg:col-span-4 space-y-8">
-              {!isVolunteer && (
-                <Card className="bg-gradient-to-br from-primary to-green-600 text-white border-none rounded-[2rem] shadow-xl shadow-primary/20 overflow-hidden relative group">
-                  <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-125 transition-transform duration-500">
-                    <Heart className="w-32 h-32" />
-                  </div>
-                  <CardHeader>
-                    <CardTitle className="text-2xl font-black">Become a Volunteer</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6 relative z-10">
-                    <p className="text-white/80 text-sm leading-relaxed">
-                      Join our network of 500+ heroes. Get real-time alerts for emergencies where your skills can save lives.
-                    </p>
-                    <Button
-                      onClick={handleBecomeVolunteer}
-                      className="w-full bg-white text-primary hover:bg-slate-50 h-12 rounded-2xl font-black shadow-lg"
-                    >
-                      Register Now
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-
-              {isVolunteer && (
-                <Card className="bg-slate-900 text-white border-none rounded-[2rem] shadow-xl overflow-hidden relative">
-                  <div className="absolute top-0 right-0 p-6 opacity-10">
-                    <MailCheck className="w-20 h-20" />
-                  </div>
-                  <CardHeader>
-                    <CardTitle className="text-xl font-bold">Volunteer Portal</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
-                      <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Invitation Bar</p>
-                      <p className="text-sm text-white/70">
-                        New mission requests will appear here. You can accept or decline instantly.
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="w-full border-white/20 hover:bg-white/10 text-white h-11 rounded-xl font-bold"
-                      onClick={() => setActiveTab('profile')}
-                    >
-                      View Invitations
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-
-              <Card className="rounded-[2rem] border-none shadow-lg bg-white">
-                <CardHeader>
-                  <CardTitle className="text-xs font-black uppercase tracking-widest text-slate-400">Impact Summary</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="flex justify-between items-end">
-                    <div>
-                      <p className="text-4xl font-black text-slate-900 tracking-tighter">1,284</p>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Lives Impacted</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-black text-primary tracking-tighter">52</p>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Active Missions</p>
-                    </div>
-                  </div>
-                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary w-[75%] rounded-full shadow-sm" />
-                  </div>
-                  <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                    <AlertTriangle className="w-5 h-5 text-blue-600" />
-                    <p className="text-xs text-blue-800 font-medium leading-tight">
-                      <strong>Tip:</strong> Be specific about the location when reporting issues.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </Tabs>
+      <main className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <ScreenErrorBoundary onReset={() => setActiveTab('dashboard')}>
+          {activeTab === 'dashboard' && (
+            <Dashboard
+              isAdmin={isAdminAuthenticated}
+              isVolunteer={isVolunteer}
+              onNavigate={(tab) => setActiveTab(tab as TabKey)}
+            />
+          )}
+          {activeTab === 'assistant' && <AIAssistant />}
+          {activeTab === 'predictive' && <PredictiveTab />}
+          {activeTab === 'invitations' && isVolunteer && <VolunteerInvitations />}
+          {activeTab === 'profile' && (
+            <UserProfile
+              focusVolunteerSetup={focusVolunteerSetup}
+              onFocusVolunteerSetupHandled={() => setFocusVolunteerSetup(false)}
+            />
+          )}
+        </ScreenErrorBoundary>
       </main>
 
       <Toaster position="top-center" richColors />
-
-      {/* Unified Login Dialog */}
-      <Dialog open={showLoginModal} onOpenChange={setShowLoginModal}>
-        <DialogContent className="sm:max-w-[400px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem]">
-          <div className="bg-primary p-10 text-white text-center relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
-            <div className="bg-white/20 w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto mb-6 backdrop-blur-md shadow-inner">
-              <HandHelping className="w-10 h-10 text-white" />
-            </div>
-            <h2 className="text-3xl font-black tracking-tight">
-              {loginMode === 'signup' ? 'Join Us' : loginMode === 'admin' ? 'System Access' : 'Welcome Back'}
-            </h2>
-            <p className="text-white/70 text-sm mt-2 font-medium">
-              {loginMode === 'signup' ? 'Start your journey with Helping Hands.' : loginMode === 'admin' ? 'Restricted administrative area.' : 'Sign in to Helping Hands.'}
-            </p>
-          </div>
-
-          <div className="p-10 space-y-8 bg-white">
-            {loginMode !== 'admin' && (
-              <Button
-                variant="outline"
-                className="w-full h-14 font-black text-slate-700 border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-3 rounded-2xl transition-all"
-                onClick={handleGoogleLogin}
-              >
-                <svg className="w-6 h-6" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-                Continue with Google
-              </Button>
-            )}
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-slate-100"></span>
-              </div>
-              <div className="relative flex justify-center text-[10px] uppercase font-black tracking-[0.2em]">
-                <span className="bg-white px-4 text-slate-300">
-                  {loginMode === 'admin' ? 'Admin Login' : 'Or Email'}
-                </span>
-              </div>
-            </div>
-
-            <form onSubmit={handleAuth} className="space-y-5">
-              {loginMode === 'signup' && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Username</label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                    <Input
-                      placeholder="johndoe"
-                      className="bg-slate-50 border-none focus-visible:ring-primary h-14 pl-12 rounded-2xl font-medium"
-                      value={authCreds.username}
-                      onChange={e => setAuthCreds(prev => ({ ...prev, username: e.target.value }))}
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Email Address</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                  <Input
-                    type="email"
-                    placeholder="name@example.com"
-                    className="bg-slate-50 border-none focus-visible:ring-primary h-14 pl-12 rounded-2xl font-medium"
-                    value={authCreds.email}
-                    onChange={e => setAuthCreds(prev => ({ ...prev, email: e.target.value }))}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                  <Input
-                    type="password"
-                    placeholder="••••••••"
-                    className="bg-slate-50 border-none focus-visible:ring-primary h-14 pl-12 rounded-2xl font-medium"
-                    value={authCreds.password}
-                    onChange={e => setAuthCreds(prev => ({ ...prev, password: e.target.value }))}
-                    required
-                  />
-                </div>
-              </div>
-              <Button type="submit" className="w-full h-14 font-black shadow-xl shadow-primary/30 rounded-2xl text-lg mt-4">
-                {loginMode === 'signup' ? 'Create Account' : 'Sign In'}
-              </Button>
-            </form>
-
-            <div className="flex flex-col gap-4 pt-4">
-              {loginMode === 'login' && (
-                <>
-                  <button
-                    onClick={() => setLoginMode('signup')}
-                    className="text-xs text-slate-500 hover:text-primary transition-colors flex items-center justify-center gap-2 font-medium"
-                  >
-                    Don't have an account? <span className="font-black text-primary">Sign Up</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setLoginMode('admin')}
-                    className="text-[10px] text-slate-300 hover:text-slate-500 uppercase tracking-[0.2em] font-black mt-4 transition-colors"
-                  >
-                    System Administrator Access
-                  </button>
-                </>
-              )}
-              {loginMode === 'signup' && (
-                <button
-                  onClick={() => setLoginMode('login')}
-                  className="text-xs text-slate-500 hover:text-primary transition-colors flex items-center justify-center gap-2 font-medium"
-                >
-                  Already have an account? <span className="font-black text-primary">Login</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              )}
-              {loginMode === 'admin' && (
-                <button
-                  onClick={() => setLoginMode('login')}
-                  className="text-xs text-slate-500 hover:text-primary transition-colors flex items-center justify-center gap-2 font-medium"
-                >
-                  Back to <span className="font-black text-primary">Standard Login</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Volunteer Registration Dialog */}
-      <Dialog open={showVolunteerModal} onOpenChange={setShowVolunteerModal}>
-        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem]">
-          <div className="bg-gradient-to-br from-primary to-green-600 p-10 text-white text-center relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
-            <div className="bg-white/20 w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto mb-6 backdrop-blur-md shadow-inner">
-              <Heart className="w-10 h-10 text-white" />
-            </div>
-            <h2 className="text-3xl font-black tracking-tight">Join the Mission</h2>
-            <p className="text-white/70 text-sm mt-2 font-medium">Complete your profile to start receiving emergency alerts.</p>
-          </div>
-
-          <div className="p-10 space-y-6 bg-white">
-            <form onSubmit={handleBecomeVolunteer} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Skills (comma separated)</label>
-                <Input
-                  placeholder="Medical, Driving, Cooking..."
-                  className="bg-slate-50 border-none focus-visible:ring-primary h-14 px-6 rounded-2xl font-medium"
-                  value={volunteerData.skills}
-                  onChange={e => setVolunteerData(prev => ({ ...prev, skills: e.target.value }))}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Base Location</label>
-                <div className="relative">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                  <Input
-                    placeholder="City, Country"
-                    className="bg-slate-50 border-none focus-visible:ring-primary h-14 pl-12 rounded-2xl font-medium"
-                    value={volunteerData.location}
-                    onChange={e => setVolunteerData(prev => ({ ...prev, location: e.target.value }))}
-                    required
-                  />
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full h-14 font-black shadow-xl shadow-primary/30 rounded-2xl text-lg mt-4">
-                Complete Registration
-              </Button>
-            </form>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
