@@ -50,34 +50,34 @@
 
 @layer base {
   :root {
-    /* Premium NGO Pastel Theme */
-    --background: #FCFDF7; /* Warm Off-white */
-    --foreground: #0F172A; /* Slate 900 for modern feel */
+    /* Premium NGO Pastel Theme - Revised */
+    --background: #FEF9C3; /* Pastel Yellow Main */
+    --foreground: #1E3A8A; /* Deep Blue for contrast */
     
-    --card: #FFFFFF;
-    --card-foreground: #0F172A;
+    --card: rgba(255, 255, 255, 0.8);
+    --card-foreground: #1E3A8A;
     
     --popover: #FFFFFF;
-    --popover-foreground: #0F172A;
+    --popover-foreground: #1E3A8A;
     
     --primary: #22C55E; /* Modern NGO Green */
     --primary-foreground: #FFFFFF;
     
-    --secondary: #E0F2FE; /* Light Pastel Blue */
-    --secondary-foreground: #0369A1;
+    --secondary: #DBEAFE; /* Light Pastel Blue */
+    --secondary-foreground: #1E40AF;
     
     --muted: #F8FAFC;
     --muted-foreground: #64748B;
     
-    --accent: #FEF9C3; /* Light Pastel Yellow */
-    --accent-foreground: #854D0E;
+    --accent: #DCFCE7; /* Pastel Green Accent */
+    --accent-foreground: #14532D;
     
     --destructive: #EF4444;
-    --border: #E2E8F0;
-    --input: #E2E8F0;
+    --border: rgba(30, 58, 138, 0.1);
+    --input: rgba(30, 58, 138, 0.1);
     --ring: #22C55E;
     
-    --radius: 1.5rem; /* Larger, softer radius for premium feel */
+    --radius: 2rem; /* Even softer radius */
   }
 
   .dark {

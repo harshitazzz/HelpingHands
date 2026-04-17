@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { AIAssistant } from './components/AIAssistant';
 import { PredictiveTab } from './components/PredictiveTab';
 import { UserProfile } from './components/UserProfile';
@@ -11,13 +11,13 @@ import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Heart, Shield, Users, AlertTriangle, MessageSquare, FileUp, UserPlus, LayoutDashboard, LogOut, MailCheck, ShieldAlert, Trash2, Brain, HandHelping, Sparkles, MapPin } from 'lucide-react';
-import { 
-  auth, 
+import {
+  auth,
   db,
-  signInWithGoogle, 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  updateProfile 
+  signInWithGoogle,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile
 } from './lib/firebase';
 import { doc, deleteDoc, collection, query, where, getDocs, writeBatch, getDoc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -51,7 +51,7 @@ export default function App() {
         setIsVolunteer(false);
       }
     });
-    
+
     // Handle deep links for invitation responses (simulating Gmail links)
     const urlParams = new URLSearchParams(window.location.search);
     const acceptId = urlParams.get('accept');
@@ -61,7 +61,7 @@ export default function App() {
       const handleDeepLink = async () => {
         const invitationId = acceptId || rejectId;
         const status = acceptId ? 'accepted' : 'rejected';
-        
+
         if (!invitationId) return;
 
         try {
@@ -155,8 +155,8 @@ export default function App() {
       } else if (errorCode === 'auth/invalid-email') {
         toast.error('Please enter a valid email address.');
       } else if (
-        errorCode === 'auth/invalid-credential' || 
-        errorCode === 'auth/user-not-found' || 
+        errorCode === 'auth/invalid-credential' ||
+        errorCode === 'auth/user-not-found' ||
         errorCode === 'auth/wrong-password' ||
         errorMessage.toLowerCase().includes('invalid-credential')
       ) {
@@ -191,56 +191,88 @@ export default function App() {
     }
   };
 
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  const handleLogout = () => {
+    auth.signOut();
+    toast.success('Signed out successfully');
+    setShowProfileMenu(false);
+  };
+
   return (
-    <div className="min-h-screen bg-background font-sans text-slate-900 selection:bg-primary/20 transition-all duration-500">
+    <div className="min-h-screen font-sans text-slate-900 selection:bg-primary/20 transition-all duration-500 bg-[#FEF9C3] bg-gradient-to-br from-[#FEF9C3] via-[#FEF9C3] to-[#DCFCE7]">
       <AnimatePresence>
         {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
       </AnimatePresence>
 
-      {/* Navigation */}
-      <nav className="sticky top-0 z-50 w-full glass">
-        <div className="container mx-auto px-4 h-20 flex items-center justify-between">
+      {/* Simplified Navigation */}
+      <nav className="sticky top-0 z-50 w-full glass-border transition-all duration-300">
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+          {/* Logo - Left */}
           <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-            <div className="bg-primary p-2 rounded-2xl shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
-              <HandHelping className="w-7 h-7 text-white" />
+            <div className="bg-primary/10 p-2 rounded-xl group-hover:bg-primary/20 transition-colors">
+              <HandHelping className="w-6 h-6 text-primary" />
             </div>
-            <div className="flex flex-col">
-              <span className="text-2xl font-black tracking-tighter text-slate-900 leading-none">Helping Hands</span>
-              <span className="text-[10px] uppercase tracking-widest font-bold text-primary mt-1">NGO Platform</span>
-            </div>
+            <h1 className="text-xl font-black tracking-tighter text-slate-900 leading-none">
+              Helping<span className="text-primary italic">Hands</span>
+            </h1>
           </div>
-          
+
+          {/* User Profile - Right */}
           <div className="flex items-center gap-4">
             {isAdminAuthenticated && (
-              <Badge className="bg-green-100 text-green-700 border-green-200 flex items-center gap-1 py-1 px-3 rounded-full">
+              <Badge className="bg-green-100 text-green-700 border-green-200 py-1 px-3 rounded-full text-[10px] font-black uppercase tracking-widest hidden md:flex items-center gap-1">
                 <ShieldAlert className="w-3 h-3" />
                 Admin Mode
-                <Button 
-                  variant="ghost" 
-                  size="icon-xs" 
-                  className="ml-2 h-4 w-4 p-0 hover:bg-green-200" 
-                  onClick={() => setIsAdminAuthenticated(false)}
-                >
-                  <X className="w-3 h-3" />
-                </Button>
               </Badge>
             )}
 
             {user ? (
-              <div className="flex items-center gap-3">
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-black">Hi, {user.displayName || 'User'}</p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{isVolunteer ? 'Volunteer' : 'Supporter'}</p>
+              <div className="relative">
+                <div 
+                  className="flex items-center gap-3 cursor-pointer p-1 pr-3 rounded-full hover:bg-slate-900/5 transition-all"
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                >
+                  <Avatar className="w-8 h-8 border-2 border-primary/20 shadow-sm">
+                    <AvatarImage src={user.photoURL || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary font-black text-xs">
+                      {user.displayName?.charAt(0) || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="hidden sm:block">
+                    <p className="text-sm font-black text-slate-900">Hi, {user.displayName?.split(' ')[0] || 'User'}</p>
+                  </div>
                 </div>
-                <Avatar className="w-10 h-10 border-2 border-primary/20 shadow-sm">
-                  <AvatarImage src={user.photoURL || undefined} />
-                  <AvatarFallback className="bg-primary/10 text-primary font-black">
-                    {user.displayName?.charAt(0) || 'U'}
-                  </AvatarFallback>
-                </Avatar>
+
+                <AnimatePresence>
+                  {showProfileMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 z-[60]"
+                    >
+                      <button 
+                        onClick={() => { setActiveTab('profile'); setShowProfileMenu(false); }}
+                        className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary rounded-xl transition-all flex items-center gap-2"
+                      >
+                        <User className="w-4 h-4" />
+                        Check Profile
+                      </button>
+                      <div className="h-px bg-slate-50 my-1" />
+                      <button 
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-3 text-sm font-bold text-red-400 hover:bg-red-50 rounded-xl transition-all flex items-center gap-2"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Logout
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ) : (
-              <Button onClick={() => setShowLoginModal(true)} className="rounded-full h-11 px-8 font-bold shadow-lg shadow-primary/20">
+              <Button onClick={() => setShowLoginModal(true)} className="rounded-2xl h-10 px-6 font-black bg-slate-900 text-white shadow-lg shadow-slate-900/20 active:scale-95 transition-all">
                 Sign In
               </Button>
             )}
@@ -257,9 +289,9 @@ export default function App() {
                 <span className="text-xs font-black uppercase tracking-widest">AI-Powered Coordination</span>
               </div>
               <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900">
-                {activeTab === 'dashboard' ? 'Community Dashboard' : 
-                 activeTab === 'assistant' ? 'AI Assistant' : 
-                 activeTab === 'predictive' ? 'Future Insights' : 'My Profile'}
+                {activeTab === 'dashboard' ? 'Community Dashboard' :
+                  activeTab === 'assistant' ? 'AI Assistant' :
+                    activeTab === 'predictive' ? 'Future Insights' : 'My Profile'}
               </h1>
             </div>
             <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full lg:w-auto h-auto p-1.5 bg-slate-100/50 backdrop-blur-sm rounded-[1.5rem] border border-slate-200/50">
@@ -286,7 +318,7 @@ export default function App() {
             {/* Main Content Area */}
             <div className="lg:col-span-8">
               <TabsContent value="dashboard" className="mt-0 focus-visible:ring-0">
-                <Dashboard isAdmin={isAdminAuthenticated} />
+                <Dashboard isAdmin={isAdminAuthenticated} onNavigate={(tab) => setActiveTab(tab)} />
               </TabsContent>
               <TabsContent value="assistant" className="mt-0 focus-visible:ring-0">
                 <AIAssistant />
@@ -313,7 +345,7 @@ export default function App() {
                     <p className="text-white/80 text-sm leading-relaxed">
                       Join our network of 500+ heroes. Get real-time alerts for emergencies where your skills can save lives.
                     </p>
-                    <Button 
+                    <Button
                       onClick={handleBecomeVolunteer}
                       className="w-full bg-white text-primary hover:bg-slate-50 h-12 rounded-2xl font-black shadow-lg"
                     >
@@ -338,8 +370,8 @@ export default function App() {
                         New mission requests will appear here. You can accept or decline instantly.
                       </p>
                     </div>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="w-full border-white/20 hover:bg-white/10 text-white h-11 rounded-xl font-bold"
                       onClick={() => setActiveTab('profile')}
                     >
@@ -397,19 +429,19 @@ export default function App() {
               {loginMode === 'signup' ? 'Start your journey with Helping Hands.' : loginMode === 'admin' ? 'Restricted administrative area.' : 'Sign in to Helping Hands.'}
             </p>
           </div>
-          
+
           <div className="p-10 space-y-8 bg-white">
             {loginMode !== 'admin' && (
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full h-14 font-black text-slate-700 border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-3 rounded-2xl transition-all"
                 onClick={handleGoogleLogin}
               >
                 <svg className="w-6 h-6" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                 </svg>
                 Continue with Google
               </Button>
@@ -432,8 +464,8 @@ export default function App() {
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Username</label>
                   <div className="relative">
                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                    <Input 
-                      placeholder="johndoe" 
+                    <Input
+                      placeholder="johndoe"
                       className="bg-slate-50 border-none focus-visible:ring-primary h-14 pl-12 rounded-2xl font-medium"
                       value={authCreds.username}
                       onChange={e => setAuthCreds(prev => ({ ...prev, username: e.target.value }))}
@@ -446,9 +478,9 @@ export default function App() {
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Email Address</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                  <Input 
-                    type="email" 
-                    placeholder="name@example.com" 
+                  <Input
+                    type="email"
+                    placeholder="name@example.com"
                     className="bg-slate-50 border-none focus-visible:ring-primary h-14 pl-12 rounded-2xl font-medium"
                     value={authCreds.email}
                     onChange={e => setAuthCreds(prev => ({ ...prev, email: e.target.value }))}
@@ -460,9 +492,9 @@ export default function App() {
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                  <Input 
-                    type="password" 
-                    placeholder="••••••••" 
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
                     className="bg-slate-50 border-none focus-visible:ring-primary h-14 pl-12 rounded-2xl font-medium"
                     value={authCreds.password}
                     onChange={e => setAuthCreds(prev => ({ ...prev, password: e.target.value }))}
@@ -478,14 +510,14 @@ export default function App() {
             <div className="flex flex-col gap-4 pt-4">
               {loginMode === 'login' && (
                 <>
-                  <button 
+                  <button
                     onClick={() => setLoginMode('signup')}
                     className="text-xs text-slate-500 hover:text-primary transition-colors flex items-center justify-center gap-2 font-medium"
                   >
                     Don't have an account? <span className="font-black text-primary">Sign Up</span>
                     <ChevronRight className="w-4 h-4" />
                   </button>
-                  <button 
+                  <button
                     onClick={() => setLoginMode('admin')}
                     className="text-[10px] text-slate-300 hover:text-slate-500 uppercase tracking-[0.2em] font-black mt-4 transition-colors"
                   >
@@ -494,7 +526,7 @@ export default function App() {
                 </>
               )}
               {loginMode === 'signup' && (
-                <button 
+                <button
                   onClick={() => setLoginMode('login')}
                   className="text-xs text-slate-500 hover:text-primary transition-colors flex items-center justify-center gap-2 font-medium"
                 >
@@ -503,7 +535,7 @@ export default function App() {
                 </button>
               )}
               {loginMode === 'admin' && (
-                <button 
+                <button
                   onClick={() => setLoginMode('login')}
                   className="text-xs text-slate-500 hover:text-primary transition-colors flex items-center justify-center gap-2 font-medium"
                 >
@@ -527,13 +559,13 @@ export default function App() {
             <h2 className="text-3xl font-black tracking-tight">Join the Mission</h2>
             <p className="text-white/70 text-sm mt-2 font-medium">Complete your profile to start receiving emergency alerts.</p>
           </div>
-          
+
           <div className="p-10 space-y-6 bg-white">
             <form onSubmit={handleBecomeVolunteer} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Skills (comma separated)</label>
-                <Input 
-                  placeholder="Medical, Driving, Cooking..." 
+                <Input
+                  placeholder="Medical, Driving, Cooking..."
                   className="bg-slate-50 border-none focus-visible:ring-primary h-14 px-6 rounded-2xl font-medium"
                   value={volunteerData.skills}
                   onChange={e => setVolunteerData(prev => ({ ...prev, skills: e.target.value }))}
@@ -545,8 +577,8 @@ export default function App() {
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Base Location</label>
                 <div className="relative">
                   <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                  <Input 
-                    placeholder="City, Country" 
+                  <Input
+                    placeholder="City, Country"
                     className="bg-slate-50 border-none focus-visible:ring-primary h-14 pl-12 rounded-2xl font-medium"
                     value={volunteerData.location}
                     onChange={e => setVolunteerData(prev => ({ ...prev, location: e.target.value }))}

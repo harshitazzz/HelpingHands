@@ -30,7 +30,7 @@ export function ReportUpload() {
 
     setSelectedFile(file);
     setIsProcessing(true);
-    
+
     try {
       let text = '';
       if (file.type === 'application/pdf') {
@@ -39,7 +39,7 @@ export function ReportUpload() {
       } else {
         text = await file.text();
       }
-      
+
       if (text.trim()) {
         setReportText(text);
         toast.success('File content loaded! Beacon is ready to analyze.');
@@ -83,18 +83,18 @@ export function ReportUpload() {
       });
 
       const matchCount = await autoAssignVolunteers(
-        docRef.id, 
-        structuredData.required_skills || [], 
+        docRef.id,
+        structuredData.required_skills || [],
         structuredData.location,
         structuredData.issue
       );
-      
+
       if (matchCount > 0) {
         toast.success(`Mission created! ${matchCount} heroes notified.`);
       } else {
         toast.success('Mission created! Our team will handle coordination.');
       }
-      
+
       setStructuredData(null);
       setReportText('');
       setSelectedFile(null);
@@ -117,25 +117,25 @@ export function ReportUpload() {
           Beacon extracts structured mission data from your raw reports for instant volunteer coordination.
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent className="space-y-8 px-0">
         <div className="grid md:grid-cols-2 gap-8">
           <div className="space-y-6">
-            <div 
+            <div
               className={`border-4 border-dashed rounded-[2.5rem] p-12 text-center transition-all cursor-pointer group relative overflow-hidden ${selectedFile ? 'border-primary bg-primary/5 shadow-inner' : 'border-slate-100 hover:border-primary/30 hover:bg-slate-50'}`}
               onClick={() => fileInputRef.current?.click()}
             >
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
                 accept=".pdf,.txt"
                 onChange={handleFileChange}
               />
-              
+
               {selectedFile ? (
                 <div className="flex flex-col items-center gap-4">
-                  <motion.div 
+                  <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     className="bg-white p-6 rounded-[2rem] shadow-xl shadow-primary/10"
@@ -146,8 +146,8 @@ export function ReportUpload() {
                     <p className="font-black text-xl text-slate-900 line-clamp-1 px-4">{selectedFile.name}</p>
                     <p className="text-xs font-black text-primary uppercase tracking-[0.2em]">{(selectedFile.size / 1024).toFixed(1)} KB • Document Verified</p>
                   </div>
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="sm"
                     onClick={(e) => { e.stopPropagation(); setSelectedFile(null); setReportText(''); if (fileInputRef.current) fileInputRef.current.value = ''; }}
                     className="rounded-xl hover:bg-red-50 hover:text-red-500 font-bold"
@@ -187,9 +187,9 @@ export function ReportUpload() {
                 className="min-h-[220px] p-6 resize-none focus-visible:ring-primary rounded-[2rem] border-slate-100 bg-white text-base font-medium placeholder:text-slate-300 shadow-sm"
               />
             </div>
-            
-            <Button 
-              onClick={handleProcess} 
+
+            <Button
+              onClick={handleProcess}
               disabled={isProcessing || !reportText.trim()}
               className="w-full h-16 rounded-2xl font-black text-lg shadow-2xl shadow-primary/30 transition-all active:scale-95 disabled:shadow-none"
             >
@@ -225,7 +225,7 @@ export function ReportUpload() {
                       {structuredData.urgency.toUpperCase()}
                     </Badge>
                   </div>
-                  
+
                   <div className="grid gap-6">
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Identified Issue</p>
@@ -272,8 +272,8 @@ export function ReportUpload() {
                       <CheckCircle2 className="w-5 h-5 mr-2" />
                       Create Mission
                     </Button>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       onClick={() => setStructuredData(null)}
                       className="h-14 px-8 rounded-2xl font-black text-slate-400 hover:text-red-500 transition-colors"
                     >
