@@ -38,6 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userData = await firebase.getUserData(user.uid);
       final volunteerData = await firebase.getVolunteerData(user.uid);
 
+      if (!mounted) return;
       setState(() {
         _nameController.text = userData?['name'] ?? user.displayName ?? '';
         if (volunteerData != null) {
@@ -51,7 +52,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
     } catch (e) {
       debugPrint("Error loading profile: $e");
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

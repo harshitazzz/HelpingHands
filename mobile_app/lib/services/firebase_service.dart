@@ -1,10 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:google_sign_in/google_sign_in.dart';
 
 class FirebaseService {
   FirebaseFirestore? _dbInstance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   FirebaseFirestore get _db {
     _dbInstance ??= FirebaseFirestore.instanceFor(
@@ -160,6 +163,49 @@ class FirebaseService {
   }
 
   // Authentication logic
+  Future<UserCredential> signInWithGoogle() async {
+    try {
+      UserCredential userCredential;
+
+      if (kIsWeb) {
+        // Web: Use Firebase Auth's built-in popup — no People API needed
+        final provider = GoogleAuthProvider()
+          ..addScope('email')
+          ..addScope('profile');
+        userCredential = await _auth.signInWithPopup(provider);
+      } else {
+        // Mobile: Use google_sign_in package for native flow
+        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+        if (googleUser == null) throw Exception("Sign-in cancelled");
+
+        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        userCredential = await _auth.signInWithCredential(credential);
+      }
+
+      final user = userCredential.user;
+      if (user != null) {
+        // Preserve existing role if user already exists
+        final existingData = await getUserData(user.uid);
+        await updateUserData(user.uid, {
+          'name': user.displayName ?? 'Google User',
+          'email': user.email ?? '',
+          'lastLogin': FieldValue.serverTimestamp(),
+          'role': existingData?['role'] ?? 'user',
+          if (existingData == null) 'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      return userCredential;
+    } catch (e) {
+      print("Google Sign-In Error: $e");
+      rethrow;
+    }
+  }
+
   Future<UserCredential> signInWithEmail(String email, String password) async {
     print("Attempting sign in: $email");
     try {

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -27,11 +28,18 @@
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/png" href="favicon.png" />
 
-  <title>mobile_app</title>
+  <title>HelpingHands</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Google Sign-In: Replace YOUR_WEB_CLIENT_ID with the Web Client ID from
+       Firebase Console → Authentication → Sign-in method → Google → Web SDK configuration -->
+  <meta name="google-signin-client_id"
+    content="83143683175-55p65qup858db9l54214c8ptcu2dh52f.apps.googleusercontent.com">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
+
 <body>
   <!--
     You can customize the "flutter_bootstrap.js" script.
@@ -43,4 +51,5 @@
   -->
   <script src="flutter_bootstrap.js" async></script>
 </body>
+
 </html>

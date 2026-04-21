@@ -51,6 +51,26 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isLoading = true);
+    final firebase = Provider.of<FirebaseService>(context, listen: false);
+
+    try {
+      await firebase.signInWithGoogle();
+    } catch (e) {
+      if (!e.toString().contains("cancelled")) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll(RegExp(r'\[.*\]'), '').trim()),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -230,8 +250,64 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(child: Divider(color: Colors.grey.withOpacity(0.3))),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    "OR",
+                    style: TextStyle(
+                      color: Colors.grey.withOpacity(0.6),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Expanded(child: Divider(color: Colors.grey.withOpacity(0.3))),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _buildGoogleButton(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildGoogleButton() {
+    return OutlinedButton(
+      onPressed: _signInWithGoogle,
+      style: OutlinedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1E293B),
+        minimumSize: const Size(double.infinity, 56),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        elevation: 0,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Image.network(
+            "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg",
+            height: 24,
+            errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, size: 30),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            "CONTINUE WITH GOOGLE",
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+              letterSpacing: 0.5,
+              color: Color(0xFF1E293B),
+            ),
+          ),
+        ],
       ),
     );
   }

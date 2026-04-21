@@ -132,33 +132,6 @@ class _MainLayoutState extends State<MainLayout> {
                                   ),
                                   child: const Icon(Icons.handshake, color: Colors.white, size: 20),
                                 ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        "HelpingHands",
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                      const Text(
-                                        "RELIEF NETWORK",
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 8,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1.5,
-                                          color: Color(0xFF648197),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
                               ],
                             ),
                           ),
@@ -166,54 +139,33 @@ class _MainLayoutState extends State<MainLayout> {
                       ),
                       const Spacer(),
                       // User Profile Section
-                      Flexible(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _currentIndex = tabs.length - 1),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.85),
-                              borderRadius: BorderRadius.circular(30),
-                              border: Border.all(color: Colors.white.withOpacity(0.7)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const CircleAvatar(
-                                  radius: 18,
-                                  backgroundColor: Color(0xFFE8F3FF),
-                                  child: Icon(Icons.person, color: Color(0xFF4D84A7), size: 20),
+                      GestureDetector(
+                        onTap: () => setState(() => _currentIndex = tabs.length - 1),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.85),
+                            borderRadius: BorderRadius.circular(30),
+                            border: Border.all(color: Colors.white.withOpacity(0.7)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                "Hi, ${user?.displayName ?? 'User'}",
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.foregroundColor,
                                 ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        "Hi, ${user?.displayName?.split(' ').firstOrNull ?? 'User'}",
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 12,                                        fontWeight: FontWeight.bold,
-                                          color: AppTheme.foregroundColor,
-                                        ),
-                                      ),
-                                      const Text(
-                                        "SIGNED IN",
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 7,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 1,
-                                          color: Color(0xFF94A3B8),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 8),
+                              const CircleAvatar(
+                                radius: 16,
+                                backgroundColor: Color(0xFFE8F3FF),
+                                child: Icon(Icons.person, color: Color(0xFF4D84A7), size: 18),
+                              ),
+                            ],
                           ),
                         ),
                       ),
