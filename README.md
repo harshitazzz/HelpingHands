@@ -1,20 +1,81 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+## Helping Hands
 
-# Run and deploy your AI Studio app
+<p align="center">
+  <img src="./assets/helping-hands-banner.png" width="100%" alt="Helping Hands Banner"/>
+</p>
 
-This contains everything you need to run your app locally.
+<p align="center">
+  <b>AI-Powered NGO Coordination Platform</b>
+  <br/>
+  Because every person deserves the right help at the right time.
+</p>
 
-View your app in AI Studio: https://ai.studio/apps/a415bb55-7a9e-44a8-b3b8-3abc22d2b488
+<p align="center">
+  <a href="https://gen-lang-client-0575655524.web.app">
+    🌐 Live Website
+  </a>
+  &nbsp;•&nbsp;
+  <a href="https://gen-lang-client-0575655524-app.web.app/">
+    📱 Mobile App
+  </a>
+  &nbsp;•&nbsp;
+  <a href="https://www.youtube.com/watch?v=kPn-Dk0rqr8">
+    🎥 Demo Video
+  </a>
+</p>
 
-## Run Locally
+---
 
-**Prerequisites:**  Node.js
+## About The Project
 
+Helping Hands is an AI-driven platform built to help NGOs manage and resolve community issues efficiently.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+The platform collects issues through chatbot conversations and NGO PDF uploads, converts them into structured reports using AI/NLP, and intelligently assigns the best volunteers in real time.
+
+---
+
+## Key Features
+
+- 🤖 AI chatbot for issue reporting  
+- 📄 NGO PDF upload & data extraction  
+- 🧠 NLP-based structured report generation  
+- 🎯 Smart volunteer assignment using cosine similarity  
+- 📊 Live issue tracking dashboard  
+- 🔄 Automatic reassignment for inactive volunteers  
+- 📈 Predictive analytics using external APIs  
+- 🌐 Web + Mobile Application support  
+
+---
+
+## Tech Stack
+
+<p align="center">
+
+<img src="https://skillicons.dev/icons?i=react,ts,nodejs,express,firebase,gcp,flutter,dart" />
+
+</p>
+
+- **Frontend:** React + TypeScript  
+- **Mobile:** Flutter (Dart)  
+- **Backend:** Node.js + Express.js  
+- **Hosting:** Firebase Hosting + Render  
+- **AI/NLP:** Gemini API, NLP Pipelines  
+- **Cloud:** Google Cloud  
+- **APIs:** REST APIs  
+
+---
+
+## AI Workflow
+
+```text
+User / NGO Input
+        ↓
+Chatbot + PDF Processing
+        ↓
+AI/NLP Structuring
+        ↓
+Similarity Matching Engine
+        ↓
+Volunteer Assignment
+        ↓
+Live Tracking Dashboard
