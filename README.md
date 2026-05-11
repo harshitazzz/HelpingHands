@@ -1,7 +1,7 @@
 ## Helping Hands
 
 <p align="center">
-  <img src="./assets/helping-hands-banner.png" width="100%" alt="Helping Hands Banner"/>
+  <img src="Helping-Hands-Banner.png" width="100%" alt="Helping Hands Banner"/>
 </p>
 
 <p align="center">
