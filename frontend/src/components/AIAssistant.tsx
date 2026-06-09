@@ -3,12 +3,15 @@ import { Chatbot } from './Chatbot';
 import { FileUp, MessageSquare, Mic, ShieldCheck, Sparkles, Square, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'motion/react';
+import { ReportUpload } from './ReportUpload';
 
 export function AIAssistant() {
   const [mode, setMode] = useState<'chat' | 'upload'>('chat');
   const [isRecording, setIsRecording] = useState(false);
   const [pendingVoiceInput, setPendingVoiceInput] = useState<string | null>(null);
+  const chatbotRef = useRef<any>(null);
   const recognitionRef = useRef<any>(null);
+
 
   useEffect(() => {
     const SpeechRecognition =
@@ -101,32 +104,22 @@ export function AIAssistant() {
             {mode === 'chat' ? (
               <div className="overflow-hidden rounded-[2rem] bg-white shadow-[0_10px_30px_rgba(140,165,181,0.12)]">
                 <Chatbot
+                  ref={chatbotRef}
                   externalInput={pendingVoiceInput}
                   onExternalInputHandled={() => setPendingVoiceInput(null)}
                 />
               </div>
             ) : (
-              <motion.div
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="rounded-[2rem] border border-dashed border-[#b8dfd2] bg-[#eefaf4] p-8 text-center"
-              >
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#d9f3e8] text-[#4a977d]">
-                  <UploadCloud className="h-8 w-8" />
-                </div>
-                <h3 className="mt-5 text-2xl font-bold tracking-tight text-slate-900">Upload Documents</h3>
-                <p className="mx-auto mt-3 max-w-sm text-sm leading-7 text-slate-600">
-                  Upload NGO reports in PDF or text format. Helping Assistant will extract the important
-                  keywords, structure the request, and prepare it for submission.
-                </p>
-                <Button
-                  onClick={() => setMode('chat')}
-                  variant="outline"
-                  className="mt-6 rounded-full border-[#b8dfd2] bg-white px-6 text-slate-800 hover:bg-slate-50"
-                >
-                  Switch back to chat
-                </Button>
-              </motion.div>
+              //<ReportUpload onFileSelect={(file) => chatbotRef.current?.sendFile(file)} />
+              <ReportUpload
+                onFileSelect={(file) => {
+                  setMode('chat');
+
+                  setTimeout(() => {
+                    chatbotRef.current?.sendFile(file);
+                  }, 300);
+                }}
+              />
             )}
           </div>
 
