@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/firebase_service.dart';
+import '../services/geocoding_service.dart';
 import '../theme/app_theme.dart';
 
 class InvitationsScreen extends StatelessWidget {
@@ -92,6 +95,70 @@ class _InvitationCard extends StatelessWidget {
 
   const _InvitationCard({required this.id, required this.requestId, required this.createdAt});
 
+  Future<void> _handleNavigation(BuildContext context, Map<String, dynamic> request, String volunteerId) async {
+    dynamic destinationVal = request['location'];
+    if (destinationVal == null && request['gps'] != null) {
+      destinationVal = request['gps'];
+    }
+
+    if (destinationVal == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Emergency location is not set.")),
+      );
+      return;
+    }
+
+    dynamic originVal;
+    try {
+      final firebaseService = Provider.of<FirebaseService>(context, listen: false);
+      final volunteerData = await firebaseService.getVolunteerData(volunteerId);
+      if (volunteerData != null && volunteerData['location'] != null) {
+        originVal = volunteerData['location'];
+      }
+    } catch (e) {
+      debugPrint("Error fetching volunteer location: $e");
+    }
+
+    if (originVal == null) {
+      try {
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (serviceEnabled) {
+          LocationPermission permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+          }
+          if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+            final position = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.high,
+              timeLimit: const Duration(seconds: 4),
+            );
+            originVal = {
+              'latitude': position.latitude,
+              'longitude': position.longitude,
+            };
+          }
+        }
+      } catch (e) {
+        debugPrint("Error getting device location: $e");
+      }
+    }
+
+    final String mapsUrl = GeocodingService.buildMapsUrl(destinationVal, origin: originVal);
+    final Uri url = Uri.parse(mapsUrl);
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(url);
+      }
+    } catch (e) {
+      debugPrint("Failed to launch maps: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Could not open Google Maps.")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>?>(
@@ -128,8 +195,23 @@ class _InvitationCard extends StatelessWidget {
                 children: [
                    const Icon(Icons.location_on, size: 16, color: AppTheme.primaryColor),
                    const SizedBox(width: 4),
-                   Text(request['location'] ?? "Coordinate Unspecified", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                   Text(
+                     GeocodingService.getLocationDisplay(request['location']),
+                     style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => _handleNavigation(context, request, FirebaseAuth.instance.currentUser?.uid ?? ''),
+                icon: const Icon(Icons.navigation, size: 16),
+                label: const Text("Navigate to User"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF648197),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
               const SizedBox(height: 24),
               Row(

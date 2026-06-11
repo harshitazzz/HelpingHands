@@ -20,8 +20,10 @@ import {
   MapPin,
   Phone,
   UserPlus,
-  ShieldAlert
+  ShieldAlert,
+  Clock
 } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 

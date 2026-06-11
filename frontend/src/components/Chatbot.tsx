@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Send, Bot, Volume2, VolumeX, Loader2, CheckCircle2, AlertTriangle, LogIn,
@@ -197,7 +197,7 @@ function ReportCard({
 
 /* ─── Main Chatbot ───────────────────────────────────────── */
 
-export function Chatbot({ externalInput, onExternalInputHandled }: ChatbotProps) {
+export const Chatbot = forwardRef<{ sendFile: (file: File) => void }, ChatbotProps>(function Chatbot({ externalInput, onExternalInputHandled }, ref) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -219,6 +219,13 @@ export function Chatbot({ externalInput, onExternalInputHandled }: ChatbotProps)
   const fileInputRef   = useRef<HTMLInputElement>(null);
 
   const prevUserIdRef = useRef<string | null>(auth.currentUser?.uid ?? null);
+
+  // Expose sendFile to parent via ref
+  useImperativeHandle(ref, () => ({
+    sendFile: (file: File) => {
+      sendMessage('', file);
+    },
+  }));
 
   const INITIAL_MESSAGES: Message[] = [
     {
@@ -257,7 +264,7 @@ export function Chatbot({ externalInput, onExternalInputHandled }: ChatbotProps)
     const rec = new SpeechRecognition();
     rec.continuous      = false;
     rec.interimResults  = false;
-    rec.lang            = 'en-US';
+    rec.lang            = 'hi-IN'; // Hindi-first; browser falls back to English automatically
 
     rec.onresult = (event: any) => {
       setInput(event.results[0][0].transcript);
@@ -473,8 +480,15 @@ export function Chatbot({ externalInput, onExternalInputHandled }: ChatbotProps)
       const conversationText = `ISSUE: ${report.issue}\nLOCATION: ${report.location}\nAFFECTED: ${report.affected}\nHELP NEEDED: ${report.help}`;
       const structured = await getStructuredEmergencyData(conversationText);
 
+      const locationObj = {
+        address: structured.location || report.location || 'Unknown',
+        latitude: typeof structured.gps?.lat === 'number' ? structured.gps.lat : null,
+        longitude: typeof structured.gps?.lng === 'number' ? structured.gps.lng : null,
+      };
+
       const docRef = await addDoc(collection(db, 'requests'), {
         ...structured,
+        location: locationObj,
         status: 'pending',
         createdAt: serverTimestamp(),
         assignedVolunteers: [],
@@ -485,7 +499,7 @@ export function Chatbot({ externalInput, onExternalInputHandled }: ChatbotProps)
       const matchCount = await autoAssignVolunteers(
         docRef.id,
         structured.required_skills || [],
-        structured.location,
+        locationObj,
         structured.issue
       );
 
@@ -752,4 +766,4 @@ export function Chatbot({ externalInput, onExternalInputHandled }: ChatbotProps)
       </CardFooter>
     </Card>
   );
-}
+});

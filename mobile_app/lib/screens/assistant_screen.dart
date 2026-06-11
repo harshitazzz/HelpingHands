@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:geolocator/geolocator.dart';
 import '../services/gemini_service.dart';
 import '../services/firebase_service.dart';
 import '../services/matching_service.dart';
@@ -26,10 +27,37 @@ class _AssistantScreenState extends State<AssistantScreen> {
   bool _isListening = false;
   FlutterTts? _flutterTts;
 
+  String? _detectedLocation;
+
   @override
   void initState() {
     super.initState();
     _addMessage("model", "Hello! I'm your Helping Hands assistant. How can I help you today? You can describe an emergency or issue you've encountered.");
+    _detectLocation();
+  }
+
+  Future<void> _detectLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever || permission == LocationPermission.denied) return;
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 5),
+      );
+      setState(() {
+        _detectedLocation = "${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
+      });
+      debugPrint("[GPS] Location detected: $_detectedLocation");
+    } catch (e) {
+      debugPrint("[GPS] Could not detect location: $e");
+    }
   }
 
   Future<void> _ensureSpeechInitialized() async {
@@ -46,12 +74,17 @@ class _AssistantScreenState extends State<AssistantScreen> {
     if (_flutterTts == null) {
       try {
         _flutterTts = FlutterTts();
-        await _flutterTts?.setLanguage("en-US");
         await _flutterTts?.setPitch(1.0);
+        await _flutterTts?.setSpeechRate(0.5);
       } catch (e) {
         debugPrint("TTS initialization error: $e");
       }
     }
+  }
+
+  /// Returns true if [text] contains any Devanagari character (Hindi).
+  bool _isHindi(String text) {
+    return text.runes.any((r) => r >= 0x0900 && r <= 0x097F);
   }
 
   Future<void> _listen() async {
@@ -75,6 +108,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
           onResult: (val) => setState(() {
             _controller.text = val.recognizedWords;
           }),
+          localeId: 'hi_IN', // Supports Hindi; fallback to en-US on devices that lack hi_IN
         );
       }
     } else {
@@ -85,6 +119,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
   Future<void> _speak(String text) async {
     await _ensureTtsInitialized();
+    final lang = _isHindi(text) ? "hi-IN" : "en-US";
+    await _flutterTts?.setLanguage(lang);
     await _flutterTts?.speak(text);
   }
 
@@ -126,13 +162,22 @@ class _AssistantScreenState extends State<AssistantScreen> {
     if (text.isEmpty || _isLoading) return;
 
     _controller.clear();
-    _addMessage("user", text);
+
+    // Inject GPS location into first user message as context
+    // (only inject if we have a location and this is the first human turn)
+    final isFirstUserMessage = _messages.where((m) => m['role'] == 'user').isEmpty;
+    String messageToSend = text;
+    if (isFirstUserMessage && _detectedLocation != null) {
+      messageToSend = "[CONTEXT: User GPS location is $_detectedLocation]\n$text";
+    }
+
+    _addMessage("user", text); // Show clean text to user
     
     setState(() => _isLoading = true);
 
     try {
       final gemini = Provider.of<GeminiService>(context, listen: false);
-      final response = await gemini.getChatResponse(text, _messages.sublist(0, _messages.length - 1));
+      final response = await gemini.getChatResponse(messageToSend, _messages.sublist(0, _messages.length - 1));
       _addMessage("model", response);
     } catch (e) {
       _addMessage("model", "Sorry, I encountered an error. Please try again.");
@@ -152,11 +197,44 @@ class _AssistantScreenState extends State<AssistantScreen> {
       final firebase = Provider.of<FirebaseService>(context, listen: false);
       final matching = Provider.of<MatchingService>(context, listen: false);
       
-      final structured = await gemini.getStructuredEmergencyData(lastMessage);
+      final structured = Map<String, dynamic>.from(await gemini.getStructuredEmergencyData(lastMessage));
       
+      if (structured['volunteers_needed'] == null || structured['volunteers_needed'] == 0) {
+        structured['volunteers_needed'] = 1;
+      }
+      
+      final double? lat;
+      final double? lng;
+
+      // ── Priority 1: real device GPS captured at session start ──────────
+      if (_detectedLocation != null) {
+        final parts = _detectedLocation!.split(',');
+        lat = parts.length == 2 ? double.tryParse(parts[0].trim()) : null;
+        lng = parts.length == 2 ? double.tryParse(parts[1].trim()) : null;
+        debugPrint('[SUBMIT] Using device GPS: $_detectedLocation');
+      }
+      // ── Priority 2: Gemini-extracted GPS (may be hallucinated) ──────────
+      else if (structured['gps'] != null) {
+        lat = (structured['gps']['lat'] as num?)?.toDouble();
+        lng = (structured['gps']['lng'] as num?)?.toDouble();
+        debugPrint('[SUBMIT] Using Gemini-extracted GPS: $lat, $lng');
+      } else {
+        lat = null;
+        lng = null;
+        debugPrint('[SUBMIT] No GPS available for this request');
+      }
+
+      final locationObj = {
+        'address': structured['location'] ?? 'Unknown',
+        'latitude': lat,
+        'longitude': lng,
+      };
+
+
       // 1. Create the request in Firestore
       final requestId = await firebase.createRequest({
         ...structured,
+        'location': locationObj,
         'fullSummary': lastMessage,
       });
 
@@ -164,7 +242,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
       final count = await matching.autoAssignVolunteers(
         requestId: requestId,
         requiredSkills: List<String>.from(structured['required_skills'] ?? []),
-        location: structured['location'] ?? "Unknown",
+        location: locationObj,
         issue: structured['issue'],
         volunteersNeeded: (structured['volunteers_needed'] is num) ? (structured['volunteers_needed'] as num).toInt() : 1,
       );

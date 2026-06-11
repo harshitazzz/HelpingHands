@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/firebase_service.dart';
+import '../services/geocoding_service.dart';
 import '../theme/app_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -45,7 +46,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _isVolunteer = true;
           _skillsController.text = (volunteerData['skills'] as List?)?.join(', ') ?? '';
           _phoneController.text = volunteerData['phone'] ?? '';
-          _locationController.text = volunteerData['location'] ?? '';
+          // Always show the address string in the field, even if stored as object
+          _locationController.text = GeocodingService.getLocationDisplay(volunteerData['location']);
           _availability = volunteerData['availability'] ?? 'available';
         }
         _isLoading = false;
@@ -71,13 +73,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
 
       if (_isVolunteer) {
-        // Register/Update volunteer data
+        // Geocode the typed location string to get coordinates before saving
+        Map<String, dynamic> locationObj;
+        final locationText = _locationController.text.trim();
+        if (locationText.isNotEmpty) {
+          debugPrint('[VOLUNTEER_PROFILE] Geocoding location: "$locationText"');
+          locationObj = await GeocodingService.geocodeAddress(locationText);
+          debugPrint('[VOLUNTEER_CREATED] Location geocoded: $locationObj');
+        } else {
+          locationObj = {'address': 'Unknown', 'latitude': null, 'longitude': null};
+        }
+
+        // Register/Update volunteer data with structured location
         await firebase.registerVolunteer(user.uid, {
           'skills': _skillsController.text.split(',').map((s) => s.trim()).toList(),
           'phone': _phoneController.text,
-          'location': _locationController.text,
+          'location': locationObj, // structured object, not plain string
           'availability': _availability,
-          'isApproved': true, // Auto-approve for demo
+          'isApproved': true,
         });
       } else {
         // Remove volunteer status if unchecked

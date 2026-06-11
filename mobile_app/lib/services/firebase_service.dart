@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'geocoding_service.dart';
 
 class FirebaseService {
   FirebaseFirestore? _dbInstance;
@@ -97,8 +98,18 @@ class FirebaseService {
 
   // Volunteer Management
   Future<void> registerVolunteer(String uid, Map<String, dynamic> data) async {
+    final Map<String, dynamic> normalizedData = Map<String, dynamic>.from(data);
+    if (normalizedData.containsKey('location')) {
+      final loc = normalizedData['location'];
+      if (loc is String) {
+        normalizedData['location'] = await GeocodingService.geocodeAddress(loc);
+      } else {
+        normalizedData['location'] = GeocodingService.extractLocationObject(loc);
+      }
+    }
+
     await _db.collection('volunteers').doc(uid).set({
-      ...data,
+      ...normalizedData,
       'uid': uid,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -122,18 +133,36 @@ class FirebaseService {
     return _db
         .collection('requests')
         .where('assignedVolunteers', arrayContains: uid)
-        .where('status', whereIn: ['assigned', 'ongoing', 'in-progress']) 
+        .where('status', whereIn: ['assigned', 'ongoing', 'in-progress'])
         .snapshots()
         .map((snapshot) => snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
   }
 
   // Complete a request
   Future<void> completeRequest(String requestId, String volunteerId) async {
-    await _db.collection('requests').doc(requestId).update({
-      'status': 'completed',
+    // Fetch request to get all assigned volunteers
+    final reqDoc = await _db.collection('requests').doc(requestId).get();
+    final reqData = reqDoc.data() ?? {};
+    final assignedVolunteers = List<String>.from(reqData['assignedVolunteers'] ?? []);
+    // Ensure the completing volunteer is included
+    final allToRelease = {...assignedVolunteers, volunteerId}.toList();
+
+    final batch = _db.batch();
+
+    // Mark request as resolved
+    batch.update(_db.collection('requests').doc(requestId), {
+      'status': 'resolved',
       'resolvedAt': FieldValue.serverTimestamp(),
       'completedBy': volunteerId,
     });
+
+    // Release all assigned volunteers back to available
+    for (final vId in allToRelease) {
+      batch.update(_db.collection('volunteers').doc(vId), {'availability': 'available'});
+      batch.update(_db.collection('users').doc(vId), {'availability': 'available'});
+    }
+
+    await batch.commit();
   }
 
   // Invitation Management
@@ -152,12 +181,20 @@ class FirebaseService {
       transaction.update(invRef, {'status': status});
 
       if (status == 'accepted') {
-        // Add volunteer to request
+        // Add volunteer to request and set status to assigned
         final reqRef = _db.collection('requests').doc(requestId);
         transaction.update(reqRef, {
           'assignedVolunteers': FieldValue.arrayUnion([volunteerId]),
           'status': 'assigned'
         });
+
+        // CRITICAL: Set volunteer status to busy
+        final volunteerRef = _db.collection('volunteers').doc(volunteerId);
+        transaction.update(volunteerRef, {'availability': 'busy'});
+
+        // Also update user record
+        final userRef = _db.collection('users').doc(volunteerId);
+        transaction.update(userRef, {'availability': 'busy'});
       }
     });
   }
@@ -264,8 +301,18 @@ class FirebaseService {
   // --- Matching Engine Helpers ---
 
   Future<String> createRequest(Map<String, dynamic> data) async {
+    final Map<String, dynamic> normalizedData = Map<String, dynamic>.from(data);
+    if (normalizedData.containsKey('location')) {
+      final loc = normalizedData['location'];
+      if (loc is String) {
+        normalizedData['location'] = await GeocodingService.geocodeAddress(loc);
+      } else {
+        normalizedData['location'] = GeocodingService.extractLocationObject(loc);
+      }
+    }
+
     final docRef = await _db.collection('requests').add({
-      ...data,
+      ...normalizedData,
       'createdAt': FieldValue.serverTimestamp(),
       'status': 'pending',
       'assignedVolunteers': [],

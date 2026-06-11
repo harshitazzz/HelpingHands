@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db, auth } from '@/src/lib/firebase';
 import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { respondToInvitation } from '@/src/lib/matching';
+import { buildMapsUrl, getLocationDisplay, getLocationCoords } from '@/src/lib/geocoding';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,11 +17,7 @@ interface Invitation {
   volunteerId: string;
   status: 'pending' | 'accepted' | 'rejected';
   createdAt: any;
-  requestDetails?: {
-    issue: string;
-    location: string;
-    urgency: string;
-  };
+  requestDetails?: any; // Can be {location: {address,latitude,longitude}, gps?, issue, urgency, ...}
 }
 
 export function VolunteerInvitations() {
@@ -76,17 +73,99 @@ export function VolunteerInvitations() {
     }
   };
 
+  const handleNavigateToUser = async (reqDetails: any) => {
+    // ── Resolve DESTINATION (emergency location) ─────────────────────────────
+    // Priority: location.latitude/longitude → gps.lat/lng → address string
+    const destCoords = getLocationCoords(reqDetails?.location)
+      ?? (reqDetails?.gps?.lat != null
+           ? { lat: reqDetails.gps.lat, lng: reqDetails.gps.lng }
+           : null);
+    const destDisplay = getLocationDisplay(reqDetails?.location);
+
+    if (!destCoords && destDisplay === 'Location Unknown') {
+      toast.error('Emergency location coordinates are not available.');
+      return;
+    }
+
+    const destStr = destCoords
+      ? `${destCoords.lat},${destCoords.lng}`
+      : encodeURIComponent(destDisplay);
+
+    console.log('[NAVIGATION] Destination:', destStr);
+
+    // ── Resolve ORIGIN (volunteer profile location) ───────────────────────────
+    let mapsUrl = '';
+    try {
+      // Try 'volunteers' collection first, then 'users' collection
+      let volunteerLocation: any = null;
+      const volunteerRef = doc(db, 'volunteers', user?.uid ?? '');
+      const volunteerSnap = await getDoc(volunteerRef);
+      if (volunteerSnap.exists() && volunteerSnap.data()?.location) {
+        volunteerLocation = volunteerSnap.data()!.location;
+        console.log('[NAVIGATION] Found volunteer location in volunteers collection:', volunteerLocation);
+      } else {
+        // Fallback: check users collection
+        const userRef = doc(db, 'users', user?.uid ?? '');
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists() && userSnap.data()?.location) {
+          volunteerLocation = userSnap.data()!.location;
+          console.log('[NAVIGATION] Found volunteer location in users collection:', volunteerLocation);
+        }
+      }
+
+      if (volunteerLocation) {
+        const origCoords = getLocationCoords(volunteerLocation);
+        if (origCoords) {
+          mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origCoords.lat},${origCoords.lng}&destination=${destStr}&travelmode=driving`;
+          console.log('[NAVIGATION] Origin from profile coords:', origCoords);
+        } else {
+          // Has address but no coords — use address string as origin
+          const origAddr = encodeURIComponent(getLocationDisplay(volunteerLocation));
+          mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origAddr}&destination=${destStr}&travelmode=driving`;
+          console.log('[NAVIGATION] Origin from profile address:', getLocationDisplay(volunteerLocation));
+        }
+      }
+    } catch (e) {
+      console.error('[NAVIGATION] Error fetching volunteer location:', e);
+    }
+
+    // ── Fallback: ask browser for current GPS location ────────────────────────
+    if (!mapsUrl) {
+      if (navigator.geolocation) {
+        toast.info('Fetching your current location for navigation...');
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            const url = `https://www.google.com/maps/dir/?api=1&origin=${latitude},${longitude}&destination=${destStr}&travelmode=driving`;
+            console.log('[NAVIGATION] Origin from live GPS:', latitude, longitude);
+            window.open(url, '_blank');
+          },
+          () => {
+            // No origin available — let Google Maps determine start
+            window.open(`https://www.google.com/maps/dir/?api=1&destination=${destStr}&travelmode=driving`, '_blank');
+          },
+          { enableHighAccuracy: true, timeout: 5000 }
+        );
+        return;
+      }
+      mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destStr}&travelmode=driving`;
+    }
+
+    window.open(mapsUrl, '_blank');
+  };
+
   const resendEmail = async (inv: Invitation) => {
     const loadingToast = toast.loading("Resending mission notification...");
     try {
       const baseUrl = window.location.origin;
-      const response = await fetch("/api/send-invitation", {
+      const apiUrl = import.meta.env.VITE_API_URL || "";
+      const response = await fetch(`${apiUrl}/api/send-invitation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: user?.email,
           name: user?.displayName || "Volunteer",
-          location: inv.requestDetails?.location || "Unknown",
+          location: getLocationDisplay(inv.requestDetails?.location) || 'Unknown',
           issue: inv.requestDetails?.issue || "Emergency Response Request",
           acceptLink: `${baseUrl}?accept=${inv.id}`,
           rejectLink: `${baseUrl}?reject=${inv.id}`
@@ -177,7 +256,7 @@ export function VolunteerInvitations() {
                     </CardTitle>
                     <div className="flex items-center gap-3 text-slate-500 font-bold tracking-tight mt-4 bg-slate-50/50 w-fit px-4 py-2 rounded-xl">
                       <MapPin className="w-4 h-4 text-primary" />
-                      {inv.requestDetails?.location || 'Coordinate Unspecified'}
+                      {getLocationDisplay(inv.requestDetails?.location) || 'Coordinate Unspecified'}
                     </div>
                   </CardHeader>
                   <CardContent className="p-10 pt-4 space-y-10">
@@ -191,6 +270,14 @@ export function VolunteerInvitations() {
                         <p className="text-slate-600 font-medium leading-relaxed text-lg">
                           Strategic algorithm has matched your profile expertise to this humanitarian vector. Immediate intervention is requested.
                         </p>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleNavigateToUser(inv.requestDetails)}
+                          className="w-full h-12 rounded-xl border-[#d6e8f2] bg-white text-slate-800 hover:bg-slate-50 flex items-center justify-center gap-2 mt-4"
+                        >
+                          <MapPin className="w-4 h-4 text-primary" />
+                          Navigate to User
+                        </Button>
                         <button 
                           onClick={() => resendEmail(inv)}
                           className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/70 transition-colors flex items-center gap-2 pt-2"

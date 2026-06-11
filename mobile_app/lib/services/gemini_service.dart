@@ -4,12 +4,14 @@ import 'package:flutter/foundation.dart';
 
 class GeminiService {
   final String apiKey;
-  static const String _baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
+  static const String _baseEndpoint = "https://generativelanguage.googleapis.com/v1beta/models";
 
-  GeminiService({required this.apiKey});
+  GeminiService({required this.apiKey}) {
+    debugPrint("[Gemini Service Init] API Key Prefix: '${apiKey.length >= 10 ? apiKey.substring(0, 10) + '...' : 'short/missing'}' (length: ${apiKey.length})");
+  }
 
-  Future<Map<String, dynamic>> _makeRequestWithRetry(Map<String, dynamic> body, {int retries = 3}) async {
-    final url = Uri.parse("$_baseUrl?key=$apiKey");
+  Future<Map<String, dynamic>> _makeRequestWithRetry(String model, Map<String, dynamic> body, {int retries = 3}) async {
+    final url = Uri.parse("$_baseEndpoint/$model:generateContent?key=$apiKey");
     int attempt = 0;
 
     while (attempt < retries) {
@@ -40,6 +42,19 @@ class GeminiService {
     throw Exception("Max retries exceeded");
   }
 
+  String _cleanJsonResponse(String text) {
+    text = text.trim();
+    if (text.startsWith("```json")) {
+      text = text.substring(7);
+    } else if (text.startsWith("```")) {
+      text = text.substring(3);
+    }
+    if (text.endsWith("```")) {
+      text = text.substring(0, text.length - 3);
+    }
+    return text.trim();
+  }
+
   Future<String> getChatResponse(String message, List<Map<String, String>> history) async {
     final contents = history.map((m) => {
       "role": m['role'] == "model" ? "model" : "user",
@@ -51,35 +66,67 @@ class GeminiService {
       "parts": [{"text": message}]
     });
 
-    try {
-      final data = await _makeRequestWithRetry({
-        "contents": contents,
-        "systemInstruction": {
-          "role": "system",
-          "parts": [{"text": """You are Helping Hands, an AI assistant for an NGO platform. 
-Your goal is to help users report emergencies or issues. 
-Ask questions one by one to gather:
-1. What is the issue?
-2. Where is the location?
-3. How many people are affected?
-4. What type of help is needed?
+    final models = ["gemini-3.5-flash",
+  "gemini-3.1-flash-lite"];
+    dynamic lastError;
 
-Be empathetic and professional. Once you have all the info, summarize it in a strict format as follows:
+    for (var model in models) {
+      try {
+        debugPrint("[Gemini Service] Attempting getChatResponse with model: $model");
+        final data = await _makeRequestWithRetry(
+          model,
+          {
+            "contents": contents,
+            "systemInstruction": {
+              "role": "system",
+              "parts": [{"text": """You are "Helping Hands", an AI assistant for an NGO emergency reporting platform.
+
+GOAL:
+Help users report emergencies by collecting required details step-by-step.
+
+IMPORTANT RULES:
+1. Never ask for user location. GPS location is already available in system context.
+2. Ask only ONE question at a time.
+3. Be empathetic, calm, and professional.
+4. Do NOT jump to final summary until all required information is collected.
+
+INFORMATION TO COLLECT:
+- What is the issue?
+- How many people are affected?
+- What type of help is needed?
+
+LANGUAGE RULES:
+- Detect user language.
+- If input is English → respond in English.
+- If input is Hindi (Devanagari) → respond ONLY in Hindi (Devanagari script).
+- Do NOT use Hinglish in any case.
+
+FINAL OUTPUT RULE:
+When ALL required information is collected, output ONLY this format:
+
 [EMERGENCY_SUMMARY_START]
-ISSUE: [Brief description]
-LOCATION: [Specific place]
-AFFECTED: [Number of people]
-HELP: [Specific help needed]
+ISSUE: ...
+LOCATION: ...
+AFFECTED: ...
+HELP: ...
 [EMERGENCY_SUMMARY_END]
-After the summary, ask the user if they'd like to submit this report."""}]
-        }
-      });
 
-      return data['candidates'][0]['content']['parts'][0]['text'];
-    } catch (e) {
-      debugPrint("Gemini Chat Error: $e");
-      return "The AI is currently very busy. Please try sending your message again in a moment.";
+Then ask:
+"Would you like to submit this report?"
+
+Do not add anything outside this format in final stage."""}]
+            }
+          }
+        );
+        debugPrint("[Gemini Service] Success with model: $model");
+        return data['candidates'][0]['content']['parts'][0]['text'];
+      } catch (e) {
+        lastError = e;
+        debugPrint("[Gemini Service] Model $model failed: $e");
+      }
     }
+    debugPrint("[Gemini Service] All models failed in getChatResponse. Last error: $lastError");
+    return "The AI is currently very busy. Please try sending your message again in a moment.";
   }
 
   Future<Map<String, dynamic>> getStructuredEmergencyData(String text) async {
@@ -92,21 +139,43 @@ Return ONLY a JSON object with:
   "number_of_people_affected": number,
   "volunteers_needed": number,
   "required_skills": string[],
-  "image_keyword": string
+  "image_keyword": string,
+  "gps": {
+    "lat": number,
+    "lng": number
+  }
 }""";
 
-    try {
-      final data = await _makeRequestWithRetry({
-        "contents": [{
-          "parts": [{"text": prompt}]
-        }]
-      });
+    final models = ["gemini-3.5-flash",
+  "gemini-3.1-flash-lite",
+];
+    dynamic lastError;
 
-      return jsonDecode(data['candidates'][0]['content']['parts'][0]['text']);
-    } catch (e) {
-      debugPrint("Structuring Error: $e");
-      rethrow;
+    for (var model in models) {
+      try {
+        debugPrint("[Gemini Service] Attempting getStructuredEmergencyData with model: $model");
+        final data = await _makeRequestWithRetry(
+          model,
+          {
+            "contents": [{
+              "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+              "responseMimeType": "application/json"
+            }
+          }
+        );
+
+        final rawText = data['candidates'][0]['content']['parts'][0]['text'];
+        final cleaned = _cleanJsonResponse(rawText);
+        debugPrint("[Gemini Service] Success with model: $model");
+        return jsonDecode(cleaned);
+      } catch (e) {
+        lastError = e;
+        debugPrint("[Gemini Service] Model $model failed: $e");
+      }
     }
+    throw Exception("Structuring Error: All models failed. Last error: $lastError");
   }
 
   Future<List<Map<String, dynamic>>> getPredictiveAnalysis(String location) async {
@@ -120,26 +189,44 @@ Return ONLY a JSON array of objects with:
   "type": "weather" | "conflict" | "health" | "economic"
 }""";
 
-    try {
-      final data = await _makeRequestWithRetry({
-        "contents": [{
-          "parts": [{"text": prompt}]
-        }]
-      });
+    final models = ["gemini-3.5-flash",
+  "gemini-3.1-flash-lite"];
+    dynamic lastError;
 
-      String text = data['candidates'][0]['content']['parts'][0]['text'];
-      
-      final startIndex = text.indexOf('[');
-      final endIndex = text.lastIndexOf(']');
-      if (startIndex != -1 && endIndex != -1) {
-        text = text.substring(startIndex, endIndex + 1);
+    for (var model in models) {
+      try {
+        debugPrint("[Gemini Service] Attempting getPredictiveAnalysis with model: $model");
+        final data = await _makeRequestWithRetry(
+          model,
+          {
+            "contents": [{
+              "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+              "responseMimeType": "application/json"
+            }
+          }
+        );
+
+        String text = data['candidates'][0]['content']['parts'][0]['text'];
+        final cleaned = _cleanJsonResponse(text);
+        
+        final startIndex = cleaned.indexOf('[');
+        final endIndex = cleaned.lastIndexOf(']');
+        String jsonText = cleaned;
+        if (startIndex != -1 && endIndex != -1) {
+          jsonText = cleaned.substring(startIndex, endIndex + 1);
+        }
+        
+        final list = jsonDecode(jsonText);
+        debugPrint("[Gemini Service] Success with model: $model");
+        return List<Map<String, dynamic>>.from(list);
+      } catch (e) {
+        lastError = e;
+        debugPrint("[Gemini Service] Model $model failed: $e");
       }
-      
-      final list = jsonDecode(text);
-      return List<Map<String, dynamic>>.from(list);
-    } catch (e) {
-      debugPrint("Predictive analysis error: $e");
-      return [];
     }
+    debugPrint("[Gemini Service] All models failed in getPredictiveAnalysis. Last error: $lastError");
+    return [];
   }
 }

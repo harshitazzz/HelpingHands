@@ -1,4 +1,5 @@
 const admin = require("firebase-admin");
+const { getFirestore, Timestamp, FieldValue } = require("firebase-admin/firestore");
 const express = require("express");
 const cors = require("cors");
 const { Resend } = require("resend");
@@ -19,7 +20,7 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
   console.warn("[Firebase] FIREBASE_SERVICE_ACCOUNT environment variable not found. Firestore features will fail in production.");
 }
 
-const db = admin.firestore();
+const db = getFirestore("ai-studio-a415bb55-7a9e-44a8-b3b8-3abc22d2b488");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,6 +33,22 @@ app.use(express.json());
  */
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
+});
+
+app.get("/debug-db", async (req, res) => {
+  try {
+    const collections = await db.listCollections();
+
+    res.json({
+      count: collections.length,
+      collections: collections.map(c => c.id),
+    });
+  } catch (e) {
+    res.status(500).json({
+      error: e.message,
+      code: e.code,
+    });
+  }
 });
 
 /**
@@ -89,7 +106,7 @@ app.post("/api/send-invitation", async (req, res) => {
 async function checkStaleInvitations() {
   console.log("[Background Task] Checking for stale invitations...");
   try {
-    const fiveHoursAgo = admin.firestore.Timestamp.fromDate(new Date(Date.now() - 5 * 60 * 60 * 1000));
+    const fiveHoursAgo = Timestamp.fromDate(new Date(Date.now() - 5 * 60 * 60 * 1000));
     
     const snapshot = await db.collection("invitations")
       .where("status", "==", "pending")
@@ -175,16 +192,53 @@ async function triggerNextMatch(requestId) {
         requestId,
         volunteerId: bestMatch.uid,
         status: "pending",
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
+        createdAt: FieldValue.serverTimestamp()
       });
       newlyNotified.push(bestMatch.uid);
-      
-      console.log(`[Background Task] New invitation created: ${newInvRef.id} for volunteer ${bestMatch.email}`);
+
+      console.log(`[Background Task] New invitation created: ${newInvRef.id} for volunteer ${bestMatch.email || bestMatch.uid}`);
+
+      // Send email notification for escalated invitation
+      if (bestMatch.email) {
+        const baseUrl = process.env.APP_URL || "https://helpinghands-network.web.app";
+        const acceptLink = `${baseUrl}?accept=${newInvRef.id}`;
+        const rejectLink = `${baseUrl}?reject=${newInvRef.id}`;
+        try {
+          const resendApiKey = process.env.RESEND_API_KEY;
+          if (resendApiKey) {
+            const { Resend } = require("resend");
+            const resend = new Resend(resendApiKey);
+            await resend.emails.send({
+              from: "onboarding@resend.dev",
+              to: bestMatch.email,
+              subject: `🚨 Emergency Mission Invitation: ${reqData.location || "Unknown Location"}`,
+              html: `
+                <div style="font-family: sans-serif; padding: 20px;">
+                  <h2 style="color: #ef4444;">Emergency Mission Invitation</h2>
+                  <p>Hi ${bestMatch.name || "Volunteer"},</p>
+                  <p>You have been invited to an emergency mission in <strong>${reqData.location || "Unknown Location"}</strong>.</p>
+                  <p><strong>Issue:</strong> ${reqData.issue || "Emergency Response"}</p>
+                  <p>Please respond using the links below:</p>
+                  <p>
+                    <a href="${acceptLink}" style="color: #16a34a; font-weight: bold;">[ACCEPT MISSION]</a>
+                    &nbsp;&nbsp;&nbsp;
+                    <a href="${rejectLink}" style="color: #dc2626; font-weight: bold;">[DECLINE]</a>
+                  </p>
+                  <p style="font-size: 12px; color: #64748b; margin-top: 20px;">Sent via HelpingHands Emergency Response System (escalated).</p>
+                </div>
+              `,
+            });
+            console.log(`[Background Task] Escalation email sent to ${bestMatch.email}`);
+          }
+        } catch (emailErr) {
+          console.error(`[Background Task] Failed to send escalation email to ${bestMatch.email}:`, emailErr);
+        }
+      }
     }
     
     await reqRef.update({
-      notifiedVolunteers: admin.firestore.FieldValue.arrayUnion(...newlyNotified),
-      lastInvitationSentAt: admin.firestore.FieldValue.serverTimestamp(),
+      notifiedVolunteers: FieldValue.arrayUnion(...newlyNotified),
+      lastInvitationSentAt: FieldValue.serverTimestamp(),
       noVolunteersAvailable: false
     });
     

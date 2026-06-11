@@ -21,7 +21,7 @@ export function AIAssistant() {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = 'en-US';
+      recognitionRef.current.lang = 'hi-IN'; // Hindi-first; falls back to English automatically
 
       recognitionRef.current.onresult = (event: any) => {
         const transcript: string = event.results[0][0].transcript;

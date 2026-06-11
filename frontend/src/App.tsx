@@ -89,10 +89,17 @@ export default function App() {
     const rejectId = urlParams.get('reject');
 
     if (acceptId || rejectId) {
-      const handleDeepLink = async () => {
+      const handleDeepLink = async (authedUser: typeof auth.currentUser) => {
         const invitationId = acceptId || rejectId;
         const status = acceptId ? 'accepted' : 'rejected';
         if (!invitationId) return;
+
+        // Require sign-in to respond to an invitation
+        if (!authedUser) {
+          toast.error('Please sign in first to respond to this invitation.');
+          setShowAuthModal(true);
+          return;
+        }
 
         try {
           await respondToInvitation(invitationId, status);
@@ -104,7 +111,15 @@ export default function App() {
         }
       };
 
-      handleDeepLink();
+      // Auth might not be ready immediately — wait for first auth state resolution
+      const pendingDeepLink = true;
+      let deepLinkHandled = false;
+      const unsubDeepLink = auth.onAuthStateChanged(async (deepLinkUser) => {
+        if (deepLinkHandled) return;
+        deepLinkHandled = true;
+        unsubDeepLink();
+        await handleDeepLink(deepLinkUser);
+      });
     }
 
     return () => unsubscribe();

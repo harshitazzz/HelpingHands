@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/firebase_service.dart';
+import '../services/geocoding_service.dart';
 import '../theme/app_theme.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -145,6 +148,70 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _handleNavigation(BuildContext context, Map<String, dynamic> request, String volunteerId) async {
+    dynamic destinationVal = request['location'];
+    if (destinationVal == null && request['gps'] != null) {
+      destinationVal = request['gps'];
+    }
+
+    if (destinationVal == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Emergency location is not set.")),
+      );
+      return;
+    }
+
+    dynamic originVal;
+    try {
+      final firebaseService = Provider.of<FirebaseService>(context, listen: false);
+      final volunteerData = await firebaseService.getVolunteerData(volunteerId);
+      if (volunteerData != null && volunteerData['location'] != null) {
+        originVal = volunteerData['location'];
+      }
+    } catch (e) {
+      debugPrint("Error fetching volunteer location: $e");
+    }
+
+    if (originVal == null) {
+      try {
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (serviceEnabled) {
+          LocationPermission permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+          }
+          if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+            final position = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.high,
+              timeLimit: const Duration(seconds: 4),
+            );
+            originVal = {
+              'latitude': position.latitude,
+              'longitude': position.longitude,
+            };
+          }
+        }
+      } catch (e) {
+        debugPrint("Error getting device location: $e");
+      }
+    }
+
+    final String mapsUrl = GeocodingService.buildMapsUrl(destinationVal, origin: originVal);
+    final Uri url = Uri.parse(mapsUrl);
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(url);
+      }
+    } catch (e) {
+      debugPrint("Failed to launch maps: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Could not open Google Maps.")),
+      );
+    }
+  }
+
   Widget _buildMissionCard(BuildContext context, Map<String, dynamic> mission, String uid) {
     final firebaseService = Provider.of<FirebaseService>(context, listen: false);
     return Container(
@@ -154,46 +221,69 @@ class HomeScreen extends StatelessWidget {
         color: const Color(0xFFF0FDF4),
         border: Border.all(color: const Color(0xFFBBF7D0).withOpacity(0.5)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  mission['issue'] ?? 'Emergency',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF166534)),
-                ),
-                const SizedBox(height: 4),
-                Row(
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.location_on, size: 14, color: AppTheme.primaryColor),
-                    const SizedBox(width: 4),
                     Text(
-                      mission['location'] ?? 'Unknown location',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF3F6212)),
+                      mission['issue'] ?? 'Emergency',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF166534)),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, size: 14, color: AppTheme.primaryColor),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            GeocodingService.getLocationDisplay(mission['location']),
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF3F6212)),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => firebaseService.completeRequest(mission['id'], uid),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF22C55E),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.check_circle_outline, size: 16),
-                SizedBox(width: 4),
-                Text("COMPLETE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900)),
-              ],
-            ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _handleNavigation(context, mission, uid),
+                  icon: const Icon(Icons.navigation, size: 16),
+                  label: const Text("NAVIGATE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F172A),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => firebaseService.completeRequest(mission['id'], uid),
+                  icon: const Icon(Icons.check_circle_outline, size: 16),
+                  label: const Text("COMPLETE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF22C55E),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -239,7 +329,7 @@ class HomeScreen extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  request['location'] ?? 'Location not set',
+                  GeocodingService.getLocationDisplay(request['location']),
                   style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
                 ),
               ],

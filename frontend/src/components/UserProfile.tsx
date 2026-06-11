@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { geocodeAddress, reverseGeocode, extractLocationObject, getLocationDisplay } from '@/src/lib/geocoding';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   User, 
@@ -108,7 +109,8 @@ export function UserProfile({
         setIsVolunteer(true);
         setVolunteerData({
           skills: Array.isArray(data.skills) ? data.skills.join(', ') : '',
-          location: data.location || '',
+          // Always display the address string, even if stored as object
+          location: getLocationDisplay(data.location),
           phone: data.phone || '',
           availability: data.availability || 'available'
         });
@@ -150,11 +152,20 @@ export function UserProfile({
     setIsSubmitting(true);
     try {
       const skillsArray = volunteerData.skills.split(',').map(s => s.trim()).filter(s => s);
+
+      // Use already-detected GPS object if available; otherwise geocode the typed string
+      let locationObj = _detectedLocationObject.current || extractLocationObject(volunteerData.location);
+      if (!locationObj.latitude && volunteerData.location.trim()) {
+        toast.info('Geocoding your location...');
+        locationObj = await geocodeAddress(volunteerData.location.trim());
+        console.log('[VOLUNTEER_CREATED] Location geocoded:', locationObj);
+      }
+
       const data = {
         name: profileData.displayName,
         email: user.email,
         skills: skillsArray,
-        location: volunteerData.location,
+        location: locationObj, // Always save as structured object
         phone: volunteerData.phone,
         availability: volunteerData.availability,
         uid: user.uid,
@@ -162,6 +173,7 @@ export function UserProfile({
       };
 
       await setDoc(doc(db, 'volunteers', user.uid), data, { merge: true });
+      console.log('[VOLUNTEER_CREATED] Volunteer profile saved with location:', locationObj);
       
       // Ensure user role is volunteer
       await setDoc(doc(db, 'users', user.uid), { role: 'volunteer' }, { merge: true });
@@ -251,14 +263,14 @@ export function UserProfile({
       async (position) => {
         try {
           const { latitude, longitude } = position.coords;
-          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-          const data = await response.json();
-          const city = data.address.city || data.address.town || data.address.village || data.address.suburb || "";
-          const state = data.address.state || "";
-          const locationString = city && state ? `${city}, ${state}` : city || state || "Unknown Location";
-          
-          setVolunteerData(prev => ({ ...prev, location: locationString }));
-          toast.success(`Location detected: ${locationString}`);
+          // Reverse geocode to get a readable address
+          const locationObj = await reverseGeocode(latitude, longitude);
+          console.log('[GPS] Location detected:', locationObj);
+          // Show address in the input field
+          setVolunteerData(prev => ({ ...prev, location: locationObj.address }));
+          // Store the full object in a ref so handleUpdateVolunteer can use it
+          _detectedLocationObject.current = locationObj;
+          toast.success(`Location detected: ${locationObj.address}`);
         } catch (error) {
           console.error("Geocoding error:", error);
           toast.error("Failed to resolve location name");
@@ -270,6 +282,9 @@ export function UserProfile({
       }
     );
   };
+
+  // Ref to hold the full detected location object (avoids double geocoding)
+  const _detectedLocationObject = useRef<{ address: string; latitude: number | null; longitude: number | null } | null>(null);
 
   if (!user) {
     return (

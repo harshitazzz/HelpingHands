@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { findMatches, assignVolunteer, Volunteer, completeRequest } from '@/src/lib/matching';
+import { getLocationDisplay } from '@/src/lib/geocoding';
 
 interface Request {
   id: string;
@@ -49,11 +50,12 @@ function toTitleCase(value: string) {
     .join(' ');
 }
 
-function normalizeAreaName(rawLocation?: string) {
+function normalizeAreaName(rawLocation?: any) {
   const fallback = 'Unknown area';
-  if (!rawLocation) return fallback;
+  const displayLoc = getLocationDisplay(rawLocation);
+  if (!displayLoc) return fallback;
 
-  const cleaned = rawLocation.trim();
+  const cleaned = displayLoc.trim();
   if (!cleaned) return fallback;
 
   const parts = cleaned
@@ -172,7 +174,7 @@ export function Dashboard({
     }, {});
 
     const topAreas = Object.entries(locationCounts)
-      .sort(([, a], [, b]) => b - a)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 4)
       .map(([name, count]) => ({ name, count }));
 
@@ -214,7 +216,35 @@ export function Dashboard({
 
   const handleAssign = async (requestId: string, volunteerId: string) => {
     try {
-      await assignVolunteer(requestId, volunteerId);
+      // 1. Create invitation document
+      const invitationId = await assignVolunteer(requestId, volunteerId);
+
+      // 2. Fetch volunteer and request data to compose email
+      const { getDoc, doc: fsDoc } = await import('firebase/firestore');
+      const [volSnap, reqSnap] = await Promise.all([
+        getDoc(fsDoc(db, 'volunteers', volunteerId)),
+        getDoc(fsDoc(db, 'requests', requestId)),
+      ]);
+      const vol = volSnap.exists() ? volSnap.data() : null;
+      const req = reqSnap.exists() ? reqSnap.data() : null;
+
+      if (vol?.email) {
+        const baseUrl = window.location.origin;
+        const apiUrl = import.meta.env.VITE_API_URL || '';
+        fetch(`${apiUrl}/api/send-invitation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: vol.email,
+            name: vol.name,
+            location: getLocationDisplay(req?.location),
+            issue: req?.issue || '',
+            acceptLink: `${baseUrl}?accept=${invitationId}`,
+            rejectLink: `${baseUrl}?reject=${invitationId}`,
+          }),
+        }).catch(e => console.error('Email send failed:', e));
+      }
+
       toast.success('Invitation sent to volunteer!');
     } catch (error) {
       console.error('Assign error:', error);
@@ -354,7 +384,7 @@ export function Dashboard({
                     <h4 className="text-xl font-bold text-slate-900">{request.issue}</h4>
                     <p className="flex items-center gap-2 text-sm text-slate-500">
                       <MapPin className="h-4 w-4 text-primary" />
-                      {request.location}
+                      {getLocationDisplay(request.location)}
                     </p>
                   </div>
                   <Button
@@ -417,7 +447,7 @@ export function Dashboard({
                           <h4 className="text-2xl font-bold tracking-tight text-slate-900">{request.issue}</h4>
                           <p className="flex items-center gap-2 text-sm text-slate-500">
                             <MapPin className="h-4 w-4 text-primary" />
-                            {request.location}
+                            {getLocationDisplay(request.location)}
                           </p>
                         </div>
 
@@ -462,14 +492,16 @@ export function Dashboard({
                         </Badge>
 
                         <Dialog>
-                          <DialogTrigger asChild>
-                            <Button
-                              onClick={() => handleFindMatches(request)}
-                              className="rounded-full bg-slate-900 px-5 text-white hover:bg-slate-800"
-                            >
-                              Coordinate
-                            </Button>
-                          </DialogTrigger>
+                          <DialogTrigger
+                            render={
+                              <Button
+                                onClick={() => handleFindMatches(request)}
+                                className="rounded-full bg-slate-900 px-5 text-white hover:bg-slate-800"
+                              >
+                                Coordinate
+                              </Button>
+                            }
+                          />
                           <DialogContent className="overflow-hidden rounded-[2rem] border-none p-0 shadow-2xl sm:max-w-lg">
                             <div className="bg-slate-900 px-7 py-6 text-white">
                               <DialogHeader>
@@ -506,7 +538,7 @@ export function Dashboard({
                                           </div>
                                           <p className="flex items-center gap-1 text-xs text-slate-500">
                                             <MapPin className="h-3 w-3 text-primary" />
-                                            {volunteer.location}
+                                            {getLocationDisplay(volunteer.location)}
                                           </p>
                                         </div>
                                         <Button
